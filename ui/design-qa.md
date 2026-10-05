@@ -2,6 +2,46 @@
 
 final result: passed
 
+## 2026-10-05 simplified layout
+
+At the user's request the UI was simplified for first-time use. One centered column: a "Connect your train" step card (shown only while disconnected), Drive, Headlight & Sounds, then collapsible DJI remote / Purple brick sound / Power panels with a one-line subtitle and status chip. Debug is hidden by default behind the top-bar button. The Driving controls dropdown and the separate Enable/Disable left-stick button were merged into one **Drive with left stick** switch; invert and dead zone apply immediately. Long explanatory text moved to `../docs/app-behavior.md`. The backend was not changed.
+
+Browser checks in the labeled demo (1440px and 375px): connect/disconnect, Forward button, ArrowUp drive and Space stop, Blue headlight, Debug open/close, idle timer countdown (5 min), audio-file import with 7 s trimmed to 5 s, purple playback switch and Simulate purple brick. No horizontal overflow at 375px and no console errors. Python and JavaScript test suites pass.
+
+Polish pass: shorter copy throughout, one muted label style, neutral direction buttons with the moving direction lit blue, battery icon by level (amber at 20% or less), state chips for Purple brick and Power (with idle countdown), DJI stick controls hidden until the remote connects, icon-only Debug button and one-line header at 375px. Checked in the demo and with a simulated connected DJI remote (switch, live meter, power reading, center hint).
+
+## 2026-10-05 default enable and corrected direction
+
+The user confirmed that forward/backward were reversed. The RM330 mapping now defaults to inversion, so negative raw vertical input (physical up) requests forward power, and physical down requests reverse power. The left-stick preference defaults to enabled and is shown consistently by Driving controls and the Disable button. An active browser automatically activates the preference once train and fresh remote input are ready, requiring a new centered sample before movement. Explicit disable and inversion choices survive server restarts, alongside existing idle settings.
+
+Window exit suspends that window's session; focus/reconnection can resume the enabled preference after centering. A background window cannot suspend another window's active session. Computer-origin motion remains active while default stick mode joins the same browser, with a fresh center required before stick takeover.
+
+The complete Python suite passes **74 tests**, including default direction, connection readiness, saved preferences, focus suspension/resume, active versus inactive WebSocket heartbeats and computer takeover. The production UI build and all seven JavaScript tests pass. The earlier direction uncertainty below is resolved by the user's correction; subsequent evidence is recorded in `qa/default-left-stick-state.json` and `qa/default-left-stick-controls.png`.
+
+Both open app tabs were refreshed. The user's tab shows Computer + DJI selected, Disable left stick pressed, inversion checked in settings and the previous 12% maximum. No browser warnings/errors were reported. The real train is connected and stopped. The remote did not respond at `192.168.1.91:40007`, and a bounded receive-only scan of the active private /24 found no DJI service. The enabled preference is retained while Wi-Fi reconnects; automatic activation is covered by the real local WebSocket test with simulated input.
+
+## 2026-10-05 direct left-stick control and proportional power
+
+Train controls now includes **Enable left stick / Disable left stick**, a live vertical-position meter, signed direction and motor-power readings. The readings and drive commands share the same backend mapping: only left-stick vertical travel is used, with zero power inside the dead zone and proportional power beyond it. Full travel reaches the computer's speed setting. The existing 12% maximum and 3.8-second microphone recording were preserved. Status/help text is grouped with the stick control; computer Forward, Backward and Stop remain available on the same page.
+
+All **68 Python tests** pass. New checks cover proportional power in both directions, calibration/inversion/freshness readouts, recovery after a temporary Wi-Fi gap, Stop during the gap and refusal to rearm a closed browser. The production UI build and all seven JavaScript tests pass. No browser warnings or errors were reported, and the inspected 1066px view has no horizontal overflow.
+
+The real train and RM330 both connected. While the user moved the left stick, the bridge delivered forward/reverse commands at varying powers and received motor feedback and nonzero raw speed notifications. Evidence is in `qa/left-stick-hardware-feedback.json`. A real input gap exposed unwanted switching to Computer only; the final backend instead stops stick-driven motion, retains the enabled mode and requires a fresh centered sample before resuming. Explicit disconnection, fatal errors and browser loss still disable it. Computer-origin motion remains under the browser watchdog during a Wi-Fi gap.
+
+Live input reached both ends and returned to center. Those readings do not independently label physical up versus down; the existing inversion setting remains available for direction correction. The capture is `qa/left-stick-direction-check.json`. The final live state and inspected screenshot are `qa/left-stick-live.json` and `qa/left-stick-live.png`.
+
+## 2026-10-05 Wi-Fi left-stick driving and computer controls
+
+Driving controls now offers **Computer only** and **Computer + DJI left stick**. Computer Forward/Backward buttons and arrow keys remain available in both modes. Only the left stick's vertical axis commands the train; other stick axes, wheels and buttons are readings only. Remote stop/horn mapping fields were removed. Lights, sounds, purple audio, power and settings remain computer controls. Inversion, dead zone and left-stick center calibration remain inline.
+
+The backend uses five staggered receive-only Wi-Fi readers with independent reconnects, separate from a latest-sample Bluetooth consumer. Computer commands override the stick until a later center sample; center hands control back without stopping latched computer movement. Visible Stop requires a new center before DJI can resume. Window blur/hide/exit additionally disables DJI driving. Wi-Fi loss stops DJI-driven movement while leaving computer-driven movement under the browser heartbeat watchdog.
+
+All **63 Python tests** pass, including fresh-neutral boundaries, latest-sample replacement, slow Bluetooth acquisition, reconnection cleanup, computer/stick takeover, computer-only effects, browser heartbeat loss, cross-window ownership, overlapping Stops and canceled Stop writes. The production UI build and all seven existing JavaScript tests pass.
+
+Browser checks used a visibly labeled demo and temporary synthetic neutral DJI frames: computer Forward/Backward, Stop, horn and Blue headlight all worked with combined driving enabled. Settings expose the fixed left stick and no remote action mappings. No browser warnings or errors were observed. The inspected screenshot is `qa/wifi-dual-controls.png`.
+
+The updated real local controller received valid neutral DJI Wi-Fi input from RM330 at `192.168.1.91`, with computer-only driving selected and the previous 12% setting preserved. The live Bluetooth scan did not find an advertising train, so combined physical movement remains unverified. No forward/reverse commands were sent to real hardware during this update. Connection evidence is in `qa/wifi-drive-connections.json`.
+
 No actionable P0/P1/P2 visual differences remain for the implemented controls. The earlier live train command/feedback checks passed. New shutdown and physical purple-trigger checks are pending because the train was not advertising at the final scan. Native sound upload and native snooze configuration remain explicitly unsupported; see the feature update below. Physical DJI button/stick operation is a separate verification gap.
 
 ## 2026-10-05 sound buttons and recording follow-up

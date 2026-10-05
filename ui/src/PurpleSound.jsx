@@ -7,7 +7,11 @@ import {
   UploadSimple,
 } from "@phosphor-icons/react";
 import { freshPurpleEvent, monoWav } from "./audio-utils.mjs";
+import { Panel, Switch } from "./parts.jsx";
 
+const MAX_SECONDS = 5;
+
+// The clip is kept in this browser's IndexedDB under a single key.
 function clipStore(mode, value) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("duplo-local-audio", 1);
@@ -31,41 +35,40 @@ function clipStore(mode, value) {
   });
 }
 
+// Records or imports a short clip and plays it on this Mac when the train
+// reports the purple action brick. Nothing is uploaded to the train.
 export default function PurpleSound({ train, connected, demo, perform }) {
-  const [clip, setClip] = useState(null),
-    [recording, setRecording] = useState(false),
-    [preparing, setPreparing] = useState(false),
-    [elapsed, setElapsed] = useState(0),
-    [armed, setArmed] = useState(false),
-    [playing, setPlaying] = useState(false),
-    [message, setMessage] = useState(""),
-    [error, setError] = useState("");
-  const context = useRef(null),
-    recorder = useRef(null),
-    stream = useRef(null),
-    source = useRef(null),
-    timer = useRef(null),
-    limit = useRef(null),
-    buffer = useRef(null),
-    previous = useRef(null),
-    lastPlay = useRef(0),
-    mounted = useRef(true),
-    importInput = useRef(null);
-  const capable = Boolean(
+  const [clip, setClip] = useState(null);
+  const [recording, setRecording] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [armed, setArmed] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const context = useRef(null);
+  const recorder = useRef(null);
+  const stream = useRef(null);
+  const source = useRef(null);
+  const timers = useRef({});
+  const buffer = useRef(null);
+  const previousCount = useRef(null);
+  const lastPlay = useRef(0);
+  const mounted = useRef(true);
+  const fileInput = useRef(null);
+  const canRecord = Boolean(
     navigator.mediaDevices?.getUserMedia && window.MediaRecorder,
   );
 
   useEffect(() => {
     mounted.current = true;
     clipStore("readonly")
-      .then((saved) => {
-        if (mounted.current && saved) setClip(saved);
-      })
+      .then((saved) => mounted.current && saved && setClip(saved))
       .catch(() => {});
     return () => {
       mounted.current = false;
-      clearInterval(timer.current);
-      clearTimeout(limit.current);
+      clearInterval(timers.current.tick);
+      clearTimeout(timers.current.limit);
       if (recorder.current) {
         recorder.current.onstop = null;
         if (recorder.current.state !== "inactive") recorder.current.stop();
@@ -94,7 +97,11 @@ export default function PurpleSound({ train, connected, demo, perform }) {
     const wav = new Blob([monoWav(channels, decoded.sampleRate)], {
       type: "audio/wav",
     });
-    const saved = { blob: wav, name, duration: Math.min(5, decoded.duration) };
+    const saved = {
+      blob: wav,
+      name,
+      duration: Math.min(MAX_SECONDS, decoded.duration),
+    };
     buffer.current = null;
     source.current?.stop();
     setArmed(false);
@@ -102,19 +109,19 @@ export default function PurpleSound({ train, connected, demo, perform }) {
     try {
       await clipStore("readwrite", saved);
       setMessage(
-        decoded.duration > 5
-          ? "First 5 seconds saved in this browser."
-          : "Saved in this browser.",
+        decoded.duration > MAX_SECONDS
+          ? "Saved the first 5 seconds."
+          : "Saved.",
       );
     } catch {
-      setMessage("Ready for this session. Browser storage is unavailable.");
+      setMessage("Ready for this session (browser storage is unavailable).");
     }
     await perform("audio_event", { event: "loaded" });
   }
 
   function finishRecording() {
-    clearInterval(timer.current);
-    clearTimeout(limit.current);
+    clearInterval(timers.current.tick);
+    clearTimeout(timers.current.limit);
     if (recorder.current?.state === "recording") recorder.current.stop();
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
@@ -127,8 +134,7 @@ export default function PurpleSound({ train, connected, demo, perform }) {
     setPreparing(true);
     try {
       if (connected && !(await perform("stop"))) return;
-      const ctx = await audioContext();
-      await ctx.resume();
+      await audioContext();
       const input = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!mounted.current) {
         input.getTracks().forEach((track) => track.stop());
@@ -137,15 +143,14 @@ export default function PurpleSound({ train, connected, demo, perform }) {
       stream.current = input;
       source.current?.stop();
       setArmed(false);
-      const capture = new MediaRecorder(input),
-        chunks = [];
+      const capture = new MediaRecorder(input);
+      const chunks = [];
       recorder.current = capture;
-      capture.ondataavailable = (event) => {
-        if (event.data.size) chunks.push(event.data);
-      };
+      capture.ondataavailable = (event) =>
+        event.data.size && chunks.push(event.data);
       capture.onerror = () => {
         finishRecording();
-        setError("Recording failed. Try again or choose an audio file.");
+        setError("Recording failed. Try again or choose a file.");
       };
       capture.onstop = async () => {
         if (!mounted.current) return;
@@ -156,9 +161,7 @@ export default function PurpleSound({ train, connected, demo, perform }) {
             "Microphone recording",
           );
         } catch {
-          setError(
-            "Could not read the recording. Try again or choose an audio file.",
-          );
+          setError("Could not read the recording. Try again or choose a file.");
         } finally {
           if (mounted.current) setPreparing(false);
         }
@@ -167,25 +170,28 @@ export default function PurpleSound({ train, connected, demo, perform }) {
       setRecording(true);
       setElapsed(0);
       const started = performance.now();
-      timer.current = setInterval(
-        () => setElapsed(Math.min(5, (performance.now() - started) / 1000)),
+      timers.current.tick = setInterval(
+        () =>
+          setElapsed(
+            Math.min(MAX_SECONDS, (performance.now() - started) / 1000),
+          ),
         100,
       );
-      limit.current = setTimeout(finishRecording, 5000);
+      timers.current.limit = setTimeout(finishRecording, MAX_SECONDS * 1000);
     } catch (failure) {
       stream.current?.getTracks().forEach((track) => track.stop());
       stream.current = null;
       setError(
         failure.name === "NotAllowedError"
-          ? "Microphone access was denied. Allow it in browser settings or choose an audio file."
-          : "Microphone unavailable. You can choose an audio file instead.",
+          ? "Microphone access was denied. Allow it in the browser, or choose a file."
+          : "No microphone available. Choose a file instead.",
       );
     } finally {
       setPreparing(false);
     }
   }
 
-  async function prepareClip() {
+  async function loadBuffer() {
     const ctx = await audioContext();
     if (!buffer.current)
       buffer.current = await ctx.decodeAudioData(await clip.blob.arrayBuffer());
@@ -194,7 +200,7 @@ export default function PurpleSound({ train, connected, demo, perform }) {
 
   async function playClip(trigger = false) {
     try {
-      const ctx = await prepareClip();
+      const ctx = await loadBuffer();
       source.current?.stop();
       const next = ctx.createBufferSource();
       next.buffer = buffer.current;
@@ -204,34 +210,58 @@ export default function PurpleSound({ train, connected, demo, perform }) {
         if (mounted.current && source.current === next) {
           source.current = null;
           setPlaying(false);
-          setMessage(
-            trigger
-              ? "Purple brick clip played on this Mac."
-              : "Preview finished.",
-          );
+          setMessage(trigger ? "Purple brick clip played." : "");
         }
       };
       next.start();
       setPlaying(true);
       setError("");
-      setMessage(
-        trigger
-          ? "Purple brick detected · playing on this Mac."
-          : "Preview playing on this Mac.",
-      );
+      setMessage(trigger ? "Purple brick detected." : "");
       await perform("audio_event", { event: trigger ? "played" : "preview" });
     } catch {
       setError(
-        "Audio playback is blocked. Click Preview, then enable purple playback again.",
+        "Playback was blocked by the browser. Click Preview, then turn playback on again.",
       );
       setArmed(false);
     }
   }
 
+  async function chooseFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setError("");
+    if (file.size > 10 * 1024 * 1024)
+      return setError("Choose an audio file smaller than 10 MB.");
+    setPreparing(true);
+    try {
+      await saveAudio(file, file.name);
+    } catch {
+      setError("Could not read that file. Try WAV, MP3, M4A or WebM.");
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  async function setPlayback(enabled) {
+    try {
+      if (enabled) await loadBuffer();
+      setArmed(enabled);
+      await perform("audio_event", { event: enabled ? "armed" : "disarmed" });
+    } catch {
+      setError("Audio unavailable. Preview the clip first, then try again.");
+    }
+  }
+
+  // Play when the server reports a new purple-brick detection.
   useEffect(() => {
     const count = train.purple_events ?? 0;
-    const fresh = freshPurpleEvent(previous.current, count, train.purple_at);
-    previous.current = count;
+    const fresh = freshPurpleEvent(
+      previousCount.current,
+      count,
+      train.purple_at,
+    );
+    previousCount.current = count;
     if (
       fresh &&
       armed &&
@@ -244,89 +274,80 @@ export default function PurpleSound({ train, connected, demo, perform }) {
     }
   }, [train.purple_events, train.purple_at, connected, armed, recording]);
 
+  const status = recording
+    ? `Recording… ${elapsed.toFixed(1)} / ${MAX_SECONDS}.0 s`
+    : preparing
+      ? "Preparing audio…"
+      : playing
+        ? "Playing on this Mac…"
+        : clip
+          ? `${clip.name} · ${clip.duration.toFixed(1)} s`
+          : "No clip yet";
+  const [chipText, chipTone] = recording
+    ? ["Recording", "error"]
+    : armed
+      ? ["On", "ok"]
+      : clip
+        ? ["Clip ready", ""]
+        : ["No clip", ""];
+
   return (
-    <div className="purple-content">
-      <p className="feature-note">
-        Record up to 5 seconds. Your clip plays on this Mac when the purple star
-        brick is detected.
+    <Panel
+      title="Purple brick sound"
+      subtitle="Your own sound for the purple brick"
+      status={<span className={`chip ${chipTone}`}>{chipText}</span>}
+    >
+      <p className="hint">
+        Record up to 5 seconds. It plays on this Mac when the train passes the
+        purple brick. To play it from the train’s own speaker, use the{" "}
+        <a
+          href="https://www.lego.com/en-us/service/help-topics/article/all-about-lego-duplo-trains"
+          target="_blank"
+          rel="noreferrer"
+        >
+          LEGO DUPLO app
+        </a>
+        .
       </p>
-      <div className="clip-status" role="status" aria-live="polite">
-        <Star size={22} weight="fill" />
-        <div>
-          <strong>
-            {recording
-              ? `Recording · ${elapsed.toFixed(1)} / 5.0 s`
-              : preparing
-                ? "Preparing audio…"
-                : playing
-                  ? "Playing on this Mac"
-                  : clip
-                    ? `${clip.name} · ${clip.duration.toFixed(1)} s`
-                    : "No clip recorded"}
-          </strong>
-          <span>
-            {recording
-              ? "Stops automatically at 5 seconds."
-              : message ||
-                (clip
-                  ? "Saved on this Mac. Not sent to the train."
-                  : "Use your microphone or choose an audio file.")}
-          </span>
-        </div>
-        {recording && <span className="recording-dot" />}
+      <div className="clip" role="status" aria-live="polite">
+        <Star size={20} weight="fill" />
+        <span>
+          <strong>{status}</strong>
+          {message && <span className="hint"> · {message}</span>}
+        </span>
+        {recording && <span className="rec-dot" aria-hidden="true" />}
       </div>
-      <div className="clip-actions">
+      <div className="row">
         <button
-          className={`button ${recording ? "recording-button" : ""}`}
-          disabled={preparing || (!capable && !recording)}
+          className={`button ${recording ? "is-recording" : ""}`}
+          disabled={preparing || (!canRecord && !recording)}
+          title={
+            canRecord ? undefined : "This browser cannot record. Choose a file."
+          }
           onClick={recording ? finishRecording : startRecording}
         >
           {recording ? (
-            <Square size={17} weight="fill" />
+            <Square size={16} weight="fill" />
           ) : (
-            <Microphone size={18} />
+            <Microphone size={17} />
           )}
-          {recording
-            ? "Finish recording"
-            : clip
-              ? "Record again"
-              : "Record sound"}
+          {recording ? "Stop recording" : clip ? "Record again" : "Record"}
         </button>
         <button
           className="button"
           disabled={recording || preparing}
-          onClick={() => importInput.current.click()}
+          onClick={() => fileInput.current.click()}
         >
-          <UploadSimple size={18} />
-          Choose file
+          <UploadSimple size={17} /> Choose file
         </button>
         <input
-          ref={importInput}
+          ref={fileInput}
           type="file"
           className="visually-hidden"
           tabIndex={-1}
           accept="audio/*"
           aria-label="Choose purple sound file"
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (!file) return;
-            setError("");
-            if (file.size > 10 * 1024 * 1024) {
-              setError("Choose an audio file smaller than 10 MB.");
-              return;
-            }
-            setPreparing(true);
-            try {
-              await saveAudio(file, file.name);
-            } catch {
-              setError(
-                "Could not read that audio file. Try WAV, MP3, M4A, or WebM.",
-              );
-            } finally {
-              setPreparing(false);
-            }
-          }}
+          onChange={chooseFile}
         />
         <button
           className="button"
@@ -336,75 +357,39 @@ export default function PurpleSound({ train, connected, demo, perform }) {
           }
         >
           {playing ? (
-            <Square size={17} weight="fill" />
+            <Square size={16} weight="fill" />
           ) : (
-            <Play size={17} weight="fill" />
+            <Play size={16} weight="fill" />
           )}
-          {playing ? "Stop preview" : "Preview"}
+          {playing ? "Stop" : "Preview"}
         </button>
       </div>
-      {error && (
-        <p className="audio-error" role="alert">
-          {error}
-        </p>
-      )}
-      {!capable && (
-        <p className="feature-note">
-          This browser cannot record a microphone. Choose an audio file instead.
-        </p>
-      )}
-      <div className="purple-arm-row">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={armed}
-            disabled={!clip || !connected || recording || preparing}
-            onChange={async (event) => {
-              const enabled = event.target.checked;
-              try {
-                if (enabled) await prepareClip();
-                setArmed(enabled);
-                await perform("audio_event", {
-                  event: enabled ? "armed" : "disarmed",
-                });
-              } catch {
-                setError(
-                  "Audio unavailable. Preview your clip before enabling playback.",
-                );
-              }
-            }}
-          />
-          Play on Mac for purple brick
-        </label>
-        <span className="feature-note">
-          {!connected
-            ? "Connect the train to enable."
-            : armed
-              ? "Listening for purple · audio on Mac"
-              : "Audio on Mac"}
-        </span>
+      <div className="row">
+        <Switch
+          checked={armed}
+          disabled={!clip || !connected || recording || preparing}
+          onChange={setPlayback}
+        >
+          Play on purple brick
+        </Switch>
         {demo && (
           <button
             className="text-button"
             disabled={!armed}
             onClick={() => perform("demo_purple")}
           >
-            Simulate purple
+            Simulate purple brick
           </button>
         )}
       </div>
-      <p className="native-audio-note">
-        <strong>To play through the train’s speaker:</strong> record and
-        transfer the clip in the{" "}
-        <a
-          href="https://www.lego.com/en-us/service/help-topics/article/all-about-lego-duplo-trains"
-          target="_blank"
-          rel="noreferrer"
-        >
-          LEGO DUPLO Interactive Trains app
-        </a>
-        . Audio upload from this controller isn’t supported yet.
-      </p>
-    </div>
+      {!connected && clip && (
+        <p className="hint">Connect the train to turn playback on.</p>
+      )}
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+    </Panel>
   );
 }

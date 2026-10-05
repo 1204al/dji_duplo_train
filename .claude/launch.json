@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "duplo-demo",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "app_server.py",
+        "--demo",
+        "--port",
+        "8101"
+      ],
+      "port": 8101
+    }
+  ]
+}

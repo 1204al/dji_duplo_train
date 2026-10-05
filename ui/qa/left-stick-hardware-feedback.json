@@ -1,0 +1,1230 @@
+{
+  "maximum_power": 12,
+  "direction_orientation_confirmed": false,
+  "events": [
+    {
+      "id": 2,
+      "time": "2026-10-05T14:01:20.260+00:00",
+      "source": "controller",
+      "direction": "INFO",
+      "message": "Controller disconnected",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 3,
+      "time": "2026-10-05T14:01:20.260+00:00",
+      "source": "controller",
+      "direction": "INFO",
+      "message": "Connecting to DJI input at 192.168.1.91:40007\u2026",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 4,
+      "time": "2026-10-05T14:01:20.260+00:00",
+      "source": "controller",
+      "direction": "INFO",
+      "message": "Listening through five staggered, receive-only Wi-Fi connections.",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 6,
+      "time": "2026-10-05T14:01:20.382+00:00",
+      "source": "controller",
+      "direction": "INFO",
+      "message": "DJI Wi-Fi controls received. Left stick controls forward and reverse; other actions stay on the computer.",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 28,
+      "time": "2026-10-05T14:01:28.934+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor on connection",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 29,
+      "time": "2026-10-05T14:01:28.936+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 30,
+      "time": "2026-10-05T14:01:38.764+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 31,
+      "time": "2026-10-05T14:01:38.766+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 32,
+      "time": "2026-10-05T14:03:22.897+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 33,
+      "time": "2026-10-05T14:03:22.897+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 34,
+      "time": "2026-10-05T14:03:29.001+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stopped before switching input",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 35,
+      "time": "2026-10-05T14:03:29.001+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 36,
+      "time": "2026-10-05T14:03:29.001+00:00",
+      "source": "input",
+      "direction": "INFO",
+      "message": "Driving controls: Computer + DJI left stick \u00b7 center the stick to begin",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 37,
+      "time": "2026-10-05T14:04:20.191+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 00 04 e2 03 00 04 00 04 43 64",
+      "level": "info"
+    },
+    {
+      "id": 38,
+      "time": "2026-10-05T14:04:20.301+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 da 05 b9 02 00 04 00 04 2e 4e",
+      "level": "info"
+    },
+    {
+      "id": 39,
+      "time": "2026-10-05T14:04:20.346+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 8% power",
+      "raw": "08 00 81 32 11 51 00 f8",
+      "level": "info"
+    },
+    {
+      "id": 40,
+      "time": "2026-10-05T14:04:20.347+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 41,
+      "time": "2026-10-05T14:04:20.418+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 89 05 00 04 00 04 00 04 ee 26",
+      "level": "info"
+    },
+    {
+      "id": 42,
+      "time": "2026-10-05T14:04:20.465+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 7% power",
+      "raw": "08 00 81 32 11 51 00 f9",
+      "level": "info"
+    },
+    {
+      "id": 43,
+      "time": "2026-10-05T14:04:20.467+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 44,
+      "time": "2026-10-05T14:04:20.521+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 00 04 00 04 00 04 00 04 da de",
+      "level": "info"
+    },
+    {
+      "id": 45,
+      "time": "2026-10-05T14:04:20.542+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 46,
+      "time": "2026-10-05T14:04:20.542+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 47,
+      "time": "2026-10-05T14:04:21.072+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 04 02 00 04 00 04 00 04 c9 90",
+      "level": "info"
+    },
+    {
+      "id": 48,
+      "time": "2026-10-05T14:04:21.097+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 9% power",
+      "raw": "08 00 81 32 11 51 00 09",
+      "level": "info"
+    },
+    {
+      "id": 49,
+      "time": "2026-10-05T14:04:21.097+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 50,
+      "time": "2026-10-05T14:04:21.182+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 00 04 00 04 00 04 1a c6",
+      "level": "info"
+    },
+    {
+      "id": 51,
+      "time": "2026-10-05T14:04:21.216+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 12% power",
+      "raw": "08 00 81 32 11 51 00 0c",
+      "level": "info"
+    },
+    {
+      "id": 52,
+      "time": "2026-10-05T14:04:21.218+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 53,
+      "time": "2026-10-05T14:04:21.294+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 cb 02 00 04 00 04 00 04 68 8f",
+      "level": "info"
+    },
+    {
+      "id": 54,
+      "time": "2026-10-05T14:04:21.323+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 5% power",
+      "raw": "08 00 81 32 11 51 00 05",
+      "level": "info"
+    },
+    {
+      "id": 55,
+      "time": "2026-10-05T14:04:21.323+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 56,
+      "time": "2026-10-05T14:04:21.401+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 00 04 00 04 00 04 00 04 da de",
+      "level": "info"
+    },
+    {
+      "id": 57,
+      "time": "2026-10-05T14:04:21.429+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 58,
+      "time": "2026-10-05T14:04:21.429+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 59,
+      "time": "2026-10-05T14:04:21.735+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 69 04 00 04 00 04 00 04 d8 a1",
+      "level": "info"
+    },
+    {
+      "id": 60,
+      "time": "2026-10-05T14:04:21.757+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 1% power",
+      "raw": "08 00 81 32 11 51 00 ff",
+      "level": "info"
+    },
+    {
+      "id": 61,
+      "time": "2026-10-05T14:04:21.757+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 62,
+      "time": "2026-10-05T14:04:21.844+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 67 06 00 04 00 04 00 04 6e a6",
+      "level": "info"
+    },
+    {
+      "id": 63,
+      "time": "2026-10-05T14:04:21.875+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 11% power",
+      "raw": "08 00 81 32 11 51 00 f5",
+      "level": "info"
+    },
+    {
+      "id": 64,
+      "time": "2026-10-05T14:04:21.877+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 65,
+      "time": "2026-10-05T14:04:21.953+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 00 04 00 04 00 04 25 6f",
+      "level": "info"
+    },
+    {
+      "id": 66,
+      "time": "2026-10-05T14:04:21.982+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 12% power",
+      "raw": "08 00 81 32 11 51 00 f4",
+      "level": "info"
+    },
+    {
+      "id": 67,
+      "time": "2026-10-05T14:04:21.982+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 68,
+      "time": "2026-10-05T14:04:22.088+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 61 06 00 04 00 04 00 04 df bb",
+      "level": "info"
+    },
+    {
+      "id": 69,
+      "time": "2026-10-05T14:04:22.117+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 11% power",
+      "raw": "08 00 81 32 11 51 00 f5",
+      "level": "info"
+    },
+    {
+      "id": 70,
+      "time": "2026-10-05T14:04:22.117+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 71,
+      "time": "2026-10-05T14:04:22.160+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -60",
+      "raw": "06 00 45 36 c4 ff",
+      "level": "info"
+    },
+    {
+      "id": 72,
+      "time": "2026-10-05T14:04:22.207+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 73,
+      "time": "2026-10-05T14:04:22.207+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 74,
+      "time": "2026-10-05T14:04:22.284+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 a2 03 b2 03 00 04 00 04 47 95",
+      "level": "info"
+    },
+    {
+      "id": 75,
+      "time": "2026-10-05T14:04:22.312+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 1% power",
+      "raw": "08 00 81 32 11 51 00 01",
+      "level": "info"
+    },
+    {
+      "id": 76,
+      "time": "2026-10-05T14:04:22.312+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 77,
+      "time": "2026-10-05T14:04:22.394+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 28 03 00 04 00 04 fe 52",
+      "level": "info"
+    },
+    {
+      "id": 78,
+      "time": "2026-10-05T14:04:22.430+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 12% power",
+      "raw": "08 00 81 32 11 51 00 0c",
+      "level": "info"
+    },
+    {
+      "id": 79,
+      "time": "2026-10-05T14:04:22.433+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 80,
+      "time": "2026-10-05T14:04:22.505+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 d4 02 00 04 00 04 ed a8",
+      "level": "info"
+    },
+    {
+      "id": 81,
+      "time": "2026-10-05T14:04:22.612+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 33",
+      "raw": "06 00 45 36 21 00",
+      "level": "info"
+    },
+    {
+      "id": 82,
+      "time": "2026-10-05T14:04:22.617+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 dd 02 00 04 00 04 9e 8d",
+      "level": "info"
+    },
+    {
+      "id": 83,
+      "time": "2026-10-05T14:04:22.729+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 2a 03 00 04 00 04 a8 5a",
+      "level": "info"
+    },
+    {
+      "id": 84,
+      "time": "2026-10-05T14:04:22.839+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 58 03 00 04 00 04 ff 97",
+      "level": "info"
+    },
+    {
+      "id": 85,
+      "time": "2026-10-05T14:04:22.850+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 64",
+      "raw": "06 00 45 36 40 00",
+      "level": "info"
+    },
+    {
+      "id": 86,
+      "time": "2026-10-05T14:04:22.946+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 61 03 00 04 00 04 5c 75",
+      "level": "info"
+    },
+    {
+      "id": 87,
+      "time": "2026-10-05T14:04:23.030+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 78",
+      "raw": "06 00 45 36 4e 00",
+      "level": "info"
+    },
+    {
+      "id": 88,
+      "time": "2026-10-05T14:04:23.138+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 68 03 00 04 00 04 2f 50",
+      "level": "info"
+    },
+    {
+      "id": 89,
+      "time": "2026-10-05T14:04:23.210+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 88",
+      "raw": "06 00 45 36 58 00",
+      "level": "info"
+    },
+    {
+      "id": 90,
+      "time": "2026-10-05T14:04:23.276+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 79 03 00 04 00 04 b4 16",
+      "level": "info"
+    },
+    {
+      "id": 91,
+      "time": "2026-10-05T14:04:23.360+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 92",
+      "raw": "06 00 45 36 5c 00",
+      "level": "info"
+    },
+    {
+      "id": 92,
+      "time": "2026-10-05T14:04:23.386+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 7a 03 00 04 00 04 c9 1a",
+      "level": "info"
+    },
+    {
+      "id": 93,
+      "time": "2026-10-05T14:04:23.495+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 90 03 00 04 00 04 d4 b1",
+      "level": "info"
+    },
+    {
+      "id": 94,
+      "time": "2026-10-05T14:04:23.525+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 94",
+      "raw": "06 00 45 36 5e 00",
+      "level": "info"
+    },
+    {
+      "id": 95,
+      "time": "2026-10-05T14:04:23.661+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 70 01 b1 03 00 04 00 04 85 50",
+      "level": "info"
+    },
+    {
+      "id": 96,
+      "time": "2026-10-05T14:04:23.675+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 99",
+      "raw": "06 00 45 36 63 00",
+      "level": "info"
+    },
+    {
+      "id": 97,
+      "time": "2026-10-05T14:04:23.736+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Stop motor",
+      "raw": "08 00 81 32 11 51 00 00",
+      "level": "info"
+    },
+    {
+      "id": 98,
+      "time": "2026-10-05T14:04:23.736+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 99,
+      "time": "2026-10-05T14:04:23.937+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 b2 05 e2 03 00 04 00 04 93 d6",
+      "level": "info"
+    },
+    {
+      "id": 100,
+      "time": "2026-10-05T14:04:23.963+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 8% power",
+      "raw": "08 00 81 32 11 51 00 f8",
+      "level": "info"
+    },
+    {
+      "id": 101,
+      "time": "2026-10-05T14:04:23.963+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 102,
+      "time": "2026-10-05T14:04:24.047+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 89 03 00 04 00 04 28 7f",
+      "level": "info"
+    },
+    {
+      "id": 103,
+      "time": "2026-10-05T14:04:24.081+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 12% power",
+      "raw": "08 00 81 32 11 51 00 f4",
+      "level": "info"
+    },
+    {
+      "id": 104,
+      "time": "2026-10-05T14:04:24.082+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 105,
+      "time": "2026-10-05T14:04:24.097+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -35",
+      "raw": "06 00 45 36 dd ff",
+      "level": "info"
+    },
+    {
+      "id": 106,
+      "time": "2026-10-05T14:04:24.185+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 dd 03 00 04 00 04 e5 2f",
+      "level": "info"
+    },
+    {
+      "id": 107,
+      "time": "2026-10-05T14:04:24.335+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -62",
+      "raw": "06 00 45 36 c2 ff",
+      "level": "info"
+    },
+    {
+      "id": 108,
+      "time": "2026-10-05T14:04:24.378+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 ff 03 00 04 00 04 d3 a2",
+      "level": "info"
+    },
+    {
+      "id": 109,
+      "time": "2026-10-05T14:04:24.488+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 fd 03 00 04 00 04 85 aa",
+      "level": "info"
+    },
+    {
+      "id": 110,
+      "time": "2026-10-05T14:04:24.546+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -70",
+      "raw": "06 00 45 36 ba ff",
+      "level": "info"
+    },
+    {
+      "id": 111,
+      "time": "2026-10-05T14:04:24.604+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 fc 03 00 04 00 04 ae ae",
+      "level": "info"
+    },
+    {
+      "id": 112,
+      "time": "2026-10-05T14:04:24.710+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 00 04 00 04 00 04 25 6f",
+      "level": "info"
+    },
+    {
+      "id": 113,
+      "time": "2026-10-05T14:04:24.741+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -81",
+      "raw": "06 00 45 36 af ff",
+      "level": "info"
+    },
+    {
+      "id": 114,
+      "time": "2026-10-05T14:04:24.906+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -90",
+      "raw": "06 00 45 36 a6 ff",
+      "level": "info"
+    },
+    {
+      "id": 115,
+      "time": "2026-10-05T14:04:25.055+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -93",
+      "raw": "06 00 45 36 a3 ff",
+      "level": "info"
+    },
+    {
+      "id": 116,
+      "time": "2026-10-05T14:04:25.220+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -95",
+      "raw": "06 00 45 36 a1 ff",
+      "level": "info"
+    },
+    {
+      "id": 117,
+      "time": "2026-10-05T14:04:25.228+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 9b 05 00 04 00 04 00 04 f9 76",
+      "level": "info"
+    },
+    {
+      "id": 118,
+      "time": "2026-10-05T14:04:25.252+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 7% power",
+      "raw": "08 00 81 32 11 51 00 f9",
+      "level": "info"
+    },
+    {
+      "id": 119,
+      "time": "2026-10-05T14:04:25.252+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 120,
+      "time": "2026-10-05T14:04:25.282+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 3% power",
+      "raw": "08 00 81 32 11 51 00 03",
+      "level": "info"
+    },
+    {
+      "id": 121,
+      "time": "2026-10-05T14:04:25.282+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 122,
+      "time": "2026-10-05T14:04:25.368+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 21 03 00 04 00 04 8d 77",
+      "level": "info"
+    },
+    {
+      "id": 123,
+      "time": "2026-10-05T14:04:25.402+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 12% power",
+      "raw": "08 00 81 32 11 51 00 0c",
+      "level": "info"
+    },
+    {
+      "id": 124,
+      "time": "2026-10-05T14:04:25.402+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 125,
+      "time": "2026-10-05T14:04:25.402+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 80",
+      "raw": "06 00 45 36 50 00",
+      "level": "info"
+    },
+    {
+      "id": 126,
+      "time": "2026-10-05T14:04:25.480+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 d7 02 00 04 00 04 90 a4",
+      "level": "info"
+    },
+    {
+      "id": 127,
+      "time": "2026-10-05T14:04:25.589+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 23 03 00 04 00 04 db 7f",
+      "level": "info"
+    },
+    {
+      "id": 128,
+      "time": "2026-10-05T14:04:25.670+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 54",
+      "raw": "06 00 45 36 36 00",
+      "level": "info"
+    },
+    {
+      "id": 129,
+      "time": "2026-10-05T14:04:25.753+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 7d 03 00 04 00 04 18 06",
+      "level": "info"
+    },
+    {
+      "id": 130,
+      "time": "2026-10-05T14:04:25.911+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 65",
+      "raw": "06 00 45 36 41 00",
+      "level": "info"
+    },
+    {
+      "id": 131,
+      "time": "2026-10-05T14:04:25.920+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 00 04 00 04 00 04 1a c6",
+      "level": "info"
+    },
+    {
+      "id": 132,
+      "time": "2026-10-05T14:04:26.090+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 78",
+      "raw": "06 00 45 36 4e 00",
+      "level": "info"
+    },
+    {
+      "id": 133,
+      "time": "2026-10-05T14:04:26.270+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 87",
+      "raw": "06 00 45 36 57 00",
+      "level": "info"
+    },
+    {
+      "id": 134,
+      "time": "2026-10-05T14:04:26.435+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 93",
+      "raw": "06 00 45 36 5d 00",
+      "level": "info"
+    },
+    {
+      "id": 135,
+      "time": "2026-10-05T14:04:26.472+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 17 03 00 04 00 04 00 04 b4 de",
+      "level": "info"
+    },
+    {
+      "id": 136,
+      "time": "2026-10-05T14:04:26.497+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 4% power",
+      "raw": "08 00 81 32 11 51 00 04",
+      "level": "info"
+    },
+    {
+      "id": 137,
+      "time": "2026-10-05T14:04:26.497+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 138,
+      "time": "2026-10-05T14:04:26.581+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 ae 03 00 04 00 04 00 04 dd 54",
+      "level": "info"
+    },
+    {
+      "id": 139,
+      "time": "2026-10-05T14:04:26.618+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Forward \u00b7 1% power",
+      "raw": "08 00 81 32 11 51 00 01",
+      "level": "info"
+    },
+    {
+      "id": 140,
+      "time": "2026-10-05T14:04:26.618+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 141,
+      "time": "2026-10-05T14:04:26.647+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 71",
+      "raw": "06 00 45 36 47 00",
+      "level": "info"
+    },
+    {
+      "id": 142,
+      "time": "2026-10-05T14:04:26.709+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 ae 04 00 04 00 04 00 04 c5 93",
+      "level": "info"
+    },
+    {
+      "id": 143,
+      "time": "2026-10-05T14:04:26.737+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 2% power",
+      "raw": "08 00 81 32 11 51 00 fe",
+      "level": "info"
+    },
+    {
+      "id": 144,
+      "time": "2026-10-05T14:04:26.737+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 145,
+      "time": "2026-10-05T14:04:26.810+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 dd 03 00 04 00 04 e5 2f",
+      "level": "info"
+    },
+    {
+      "id": 146,
+      "time": "2026-10-05T14:04:26.840+00:00",
+      "source": "train",
+      "direction": "TX",
+      "message": "Reverse \u00b7 12% power",
+      "raw": "08 00 81 32 11 51 00 f4",
+      "level": "info"
+    },
+    {
+      "id": 147,
+      "time": "2026-10-05T14:04:26.843+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 148,
+      "time": "2026-10-05T14:04:26.915+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 94 06 00 04 00 04 00 04 25 6f",
+      "level": "info"
+    },
+    {
+      "id": 149,
+      "time": "2026-10-05T14:04:27.051+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -35",
+      "raw": "06 00 45 36 dd ff",
+      "level": "info"
+    },
+    {
+      "id": 150,
+      "time": "2026-10-05T14:04:27.275+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -69",
+      "raw": "06 00 45 36 bb ff",
+      "level": "info"
+    },
+    {
+      "id": 151,
+      "time": "2026-10-05T14:04:27.456+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: -83",
+      "raw": "06 00 45 36 ad ff",
+      "level": "info"
+    },
+    {
+      "id": 153,
+      "time": "2026-10-05T14:04:27.546+00:00",
+      "source": "input",
+      "direction": "INFO",
+      "message": "DJI input disabled: controller input lost",
+      "raw": "",
+      "level": "warning"
+    },
+    {
+      "id": 154,
+      "time": "2026-10-05T14:04:27.547+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Command feedback: port 50 status 0x0a",
+      "raw": "05 00 82 32 0a",
+      "level": "info"
+    },
+    {
+      "id": 155,
+      "time": "2026-10-05T14:04:27.848+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 c9 01 00 04 00 04 00 04 69 2c",
+      "level": "info"
+    },
+    {
+      "id": 156,
+      "time": "2026-10-05T14:04:27.906+00:00",
+      "source": "train",
+      "direction": "RX",
+      "message": "Speed sensor: 0",
+      "raw": "06 00 45 36 00 00",
+      "level": "info"
+    },
+    {
+      "id": 157,
+      "time": "2026-10-05T14:04:28.025+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 00 04 00 04 00 04 1a c6",
+      "level": "info"
+    },
+    {
+      "id": 158,
+      "time": "2026-10-05T14:04:28.381+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 52 03 00 04 00 04 00 04 24 2c",
+      "level": "info"
+    },
+    {
+      "id": 159,
+      "time": "2026-10-05T14:04:28.783+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 6c 01 00 04 00 04 00 04 1a c6",
+      "level": "info"
+    },
+    {
+      "id": 160,
+      "time": "2026-10-05T14:04:29.428+00:00",
+      "source": "controller",
+      "direction": "RX",
+      "message": "Controller input \u00b7 sport mode",
+      "raw": "55 1e 04 8a 06 02 00 00 00 06 ae 00 00 00 00 00 00 04 00 04 00 04 00 04 00 04 00 04 da de",
+      "level": "info"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "remote": {
+    "status": "connected",
+    "ip": "192.168.1.91",
+    "axes": {
+      "left_x": 0.0,
+      "left_y": 0.0,
+      "right_x": 0.0,
+      "right_y": 0.0,
+      "left_wheel": 0.0,
+      "right_wheel": 0.0
+    },
+    "buttons": {
+      "rth_pause": false,
+      "record": false,
+      "camera_half": false,
+      "camera_full": false,
+      "c1": false,
+      "c2": false
+    },
+    "axis_raw": {
+      "left_x": 0,
+      "left_y": 0,
+      "right_x": 0,
+      "right_y": 0,
+      "left_wheel": 0,
+      "right_wheel": 0
+    },
+    "mode": "sport",
+    "error": null
+  },
+  "input": {
+    "source": "manual",
+    "axis": "left_y",
+    "invert": false,
+    "deadzone": 0.08,
+    "center": 0,
+    "max_power": 12,
+    "neutral_required": true,
+    "manual_override": false,
+    "driver": null
+  },
+  "train": {
+    "status": "disconnected",
+    "power": 0,
+    "battery": null
+  },
+  "note": "Real DJI Wi-Fi input; train motion not tested."
+}

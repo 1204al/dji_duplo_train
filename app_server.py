@@ -45,9 +45,13 @@ class Controller:
                       "shutdown_reason": None}
         self.settings_path = Path(settings_path) if settings_path else None
         self.idle_minutes = 0
+        preferences = {}
         if self.settings_path and self.settings_path.exists():
             try:
-                value = json.loads(self.settings_path.read_text())["idle_minutes"]
+                preferences = json.loads(self.settings_path.read_text())
+                if not isinstance(preferences, dict):
+                    preferences = {}
+                value = preferences.get("idle_minutes", 0)
                 if type(value) is int and value in (0, 1, 5, 10, 15, 30):
                     self.idle_minutes = value
             except (ValueError, OSError, KeyError, TypeError):
@@ -56,10 +60,13 @@ class Controller:
         self.last_countdown = None
         self.remote = {"status": "disconnected", "ip": "", "axes": {}, "buttons": {},
                        "axis_raw": {}, "mode": None, "error": None}
-        self.input = {"source": "manual", "axis": "left_y", "invert": False,
+        self.input = {"source": "manual", "axis": "left_y",
+                      "invert": preferences.get("invert") if type(preferences.get("invert")) is bool else True,
+                      "left_stick_enabled": (preferences.get("left_stick_enabled")
+                                             if type(preferences.get("left_stick_enabled")) is bool else True),
                       "deadzone": 0.08, "center": 0, "max_power": 35,
-                      "stop_button": "rth_pause", "horn_button": "c1",
-                      "neutral_required": True}
+                      "neutral_required": True, "manual_override": False,
+                      "driver": None}
         self.logs = deque(maxlen=1000)
         self.next_id = 1
         self.client = None
@@ -68,8 +75,19 @@ class Controller:
         self.owner = None
         self.last_heartbeat = 0
         self.last_remote_sample = 0
+        self.remote_revision = 0
+        self.remote_session = 0
+        self.remote_sample = None
+        self.remote_paused = False
+        self.remote_ready = asyncio.Event()
+        self.previous_remote_controls = None
+        self.last_remote_log = 0
+        self.neutral_after = time.monotonic()
         self.write_lock = asyncio.Lock()
         self.lifecycle_lock = asyncio.Lock()
+        self.remote_lifecycle_lock = asyncio.Lock()
+        self.computer_stop_lock = asyncio.Lock()
+        self.stops_pending = 0
         self.remote_task = None
         self.tasks = set()
         self.dirty = asyncio.Event()
@@ -86,8 +104,11 @@ class Controller:
             self.log("app", "INFO", "Ready. Connect your train to begin.")
 
     def snapshot(self):
+        left_stick = self.left_stick_drive(self.remote)
         return {"train": dict(self.train), "controller": dict(self.remote),
                 "input": dict(self.input), "demo": self.demo,
+                "left_stick": {**(left_stick or {"position": None, "power": None}),
+                               "available": left_stick is not None and self.remote_input_fresh()},
                 "sounds": list(SOUNDS) if self.train["hub_type"] == 0x20 else list(INTERACTIVE_SOUNDS),
                 "service": SERVICE, "characteristic": CHARACTERISTIC,
                 "settings": {"idle_minutes": self.idle_minutes,
@@ -100,6 +121,17 @@ class Controller:
 
     def activity(self):
         self.last_activity = time.monotonic()
+
+    def save_settings(self, **changes):
+        if self.settings_path is None:
+            return
+        settings = {"idle_minutes": self.idle_minutes,
+                    "left_stick_enabled": self.input["left_stick_enabled"],
+                    "invert": self.input["invert"]}
+        settings.update(changes)
+        temporary = self.settings_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(settings) + "\n")
+        temporary.replace(self.settings_path)
 
     def log(self, source, direction, message, raw=None, level="info"):
         event = {"id": self.next_id, "time": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
@@ -158,7 +190,7 @@ class Controller:
                           measured_speed=None, tag=None, tag_name=None)
         self.owner = None
         self.epoch += 1
-        self.input.update(source="manual", neutral_required=True)
+        self.input.update(source="manual", neutral_required=True, manual_override=False, driver=None)
         self.log("train", "INFO", "Bluetooth disconnected during power off" if expected else "Train disconnected",
                  level="info" if expected else "warning")
 
@@ -257,7 +289,7 @@ class Controller:
             self.client = self.characteristic = None
             self.train.update(status="disconnected", battery=None, rssi=None, error=None,
                               measured_speed=None, tag=None, tag_name=None)
-            self.input.update(source="manual", neutral_required=True)
+            self.input.update(source="manual", neutral_required=True, manual_override=False, driver=None)
             self.log("train", "INFO", "Train disconnected")
 
     async def power_off(self, reason="Turned off from this app"):
@@ -267,7 +299,7 @@ class Controller:
             # Invalidate queued motion before waiting for the Bluetooth write lock.
             self.epoch += 1
             self.owner = None
-            self.input.update(source="manual", neutral_required=True)
+            self.input.update(source="manual", neutral_required=True, manual_override=False, driver=None)
             self.train.update(status="powering_off", power=0)
             self.dirty.set()
             try:
@@ -311,18 +343,56 @@ class Controller:
         self.owner = owner
         self.last_heartbeat = time.monotonic()
 
-    async def drive(self, power, owner, source="manual"):
+    def remote_input_fresh(self):
+        return (self.remote["status"] == "connected" and self.last_remote_sample > 0
+                and 0 <= time.monotonic() - self.last_remote_sample < 0.6)
+
+    def activate_default_input(self, owner):
+        """An active browser can resume the enabled stick after fresh connections."""
+        computer_driving = self.owner is owner and self.input["driver"] == "manual"
+        if (not self.input["left_stick_enabled"] or self.closed or self.stops_pending
+                or (self.input["source"] == "dji" and self.owner is not None)
+                or (self.owner is not None and not computer_driving) or getattr(owner, "closed", False)
+                or self.train["status"] != "connected" or (self.train["power"] and not computer_driving)
+                or not self.remote_input_fresh()):
+            return
+        self.epoch += 1
+        self.input.update(source="dji", neutral_required=True, manual_override=computer_driving,
+                          driver="manual" if computer_driving else None)
+        self.claim(owner)
+        self.neutral_after = time.monotonic()
+        self.log("input", "INFO", "DJI left stick enabled automatically · center the stick to begin")
+
+    async def drive(self, power, owner, source="manual", remote_revision=None, received_at=None):
         finite_number(power, -100, 100, "Motor power")
         power = round(power)
-        if source != self.input["source"]:
-            raise ValueError("Change the input source before driving from this control.")
-        if power:
+        if self.stops_pending:
+            return
+        if source not in ("manual", "dji"):
+            raise ValueError("Unknown driving control.")
+        if source == "dji" and (self.input["source"] != "dji" or self.input["manual_override"]):
+            return
+        if source == "dji" and power and self.input["neutral_required"]:
+            return
+        if source == "dji" and (self.owner is None or self.owner is not owner):
+            return
+        if power and source == "manual":
             self.claim(owner)
+        if source == "manual":
+            # Computer input takes priority over every older queued stick command.
+            self.epoch += 1
+            self.input.update(manual_override=self.input["source"] == "dji", neutral_required=True)
+            self.neutral_after = time.monotonic()
         epoch = self.epoch
         packet = motor_packet(self.train["hub_type"], power)
         # The lock serializes output. Recheck stop/source changes after waiting.
         async with self.write_lock:
             if epoch != self.epoch:
+                return
+            if source == "dji" and (self.input["source"] != "dji" or self.input["manual_override"]
+                                    or (power and self.input["neutral_required"])
+                                    or (remote_revision is not None and remote_revision != self.remote_revision)
+                                    or (received_at is not None and time.monotonic() - received_at >= 0.6)):
                 return
             if self.train["status"] != "connected":
                 raise ValueError("Connect the train first.")
@@ -333,28 +403,115 @@ class Controller:
                     self.characteristic, packet,
                     response="write" in self.characteristic.properties), timeout=4)
             self.train["power"] = power
+            self.input["driver"] = source if power else None
             self.activity()
             self.log("train", "TX", "Stop motor" if not power else f"{'Forward' if power > 0 else 'Reverse'} · {abs(power)}% power", packet)
-        if not power and source == "manual":
+        if not power and source == "manual" and self.input["source"] == "manual":
             self.owner = None
 
     async def stop(self, reason="Stop motor"):
+        self.stops_pending += 1
+        try:
+            return await self._stop(reason)
+        finally:
+            self.stops_pending -= 1
+
+    async def _stop(self, reason):
         was_moving = bool(self.train["power"])
         self.epoch += 1
-        self.input["neutral_required"] = True
+        stop_epoch = self.epoch
+        self.input.update(neutral_required=True, manual_override=False, driver=None)
+        self.neutral_after = time.monotonic()
+        self.owner = None
+        cancelled = False
         if self.train["status"] == "connected":
+            stop_write = asyncio.create_task(self.write(motor_packet(self.train["hub_type"], 0), reason))
             try:
-                await self.write(motor_packet(self.train["hub_type"], 0), reason)
+                while not stop_write.done():
+                    try:
+                        await asyncio.shield(stop_write)
+                    except asyncio.CancelledError:
+                        # Browser teardown cancels pending actions, but the
+                        # physical Stop must finish before teardown returns.
+                        cancelled = True
+                stop_write.result()
             except Exception as error:
                 self.log("train", "ERROR", f"Stop failed: {error}", level="error")
                 if self.client is not None:
                     with suppress(Exception):
                         await self.client.disconnect()
         self.train["power"] = 0
+        unchanged = self.epoch == stop_epoch
+        # Also discard commands submitted while the Stop write was in flight.
+        self.epoch += 1
+        self.input.update(neutral_required=True, manual_override=False, driver=None)
+        self.neutral_after = time.monotonic()
+        self.owner = None
         if was_moving:
             self.activity()
-        self.owner = None
         self.dirty.set()
+        if cancelled:
+            raise asyncio.CancelledError
+        return self.epoch if unchanged else None
+
+    async def computer_stop(self, owner, reason="Stop motor"):
+        async with self.computer_stop_lock:
+            await self._computer_stop(owner, reason)
+
+    async def _computer_stop(self, owner, reason):
+        dji_owner = self.owner if self.owner is not None else owner
+        keep_dji = self.input["source"] == "dji" and self.remote["status"] in ("connected", "waiting")
+        session = self.remote_session
+        stopped_epoch = await self.stop(reason)
+        self.activity()
+        if stopped_epoch is None or self.epoch != stopped_epoch or self.remote_session != session:
+            if self.owner is None and self.input["source"] == "dji":
+                self.input["source"] = "manual"
+            return
+        if (keep_dji and self.input["source"] == "dji" and self.remote["status"] in ("connected", "waiting")
+                and self.train["status"] == "connected" and not getattr(dji_owner, "closed", False)):
+            if dji_owner is owner:
+                self.claim(owner)
+            else:
+                self.owner = dji_owner
+            self.neutral_after = time.monotonic()
+        else:
+            self.input["source"] = "manual"
+
+    async def disable_remote_input(self, reason):
+        """Wi-Fi loss must never cancel a command from the computer."""
+        if self.input["source"] != "dji":
+            return
+        self.input.update(source="manual", neutral_required=True, manual_override=False)
+        self.remote_revision += 1
+        if self.input["driver"] != "manual":
+            await self.stop(reason)
+        self.log("input", "INFO", reason, level="warning")
+
+    async def pause_remote_input(self):
+        """Stop through a temporary Wi-Fi gap, then require fresh neutral input."""
+        async with self.computer_stop_lock:
+            if self.input["source"] != "dji" or self.remote_paused or self.remote_input_fresh():
+                return
+            self.remote_paused = True
+            self.remote_revision += 1
+            self.input["neutral_required"] = True
+            self.neutral_after = time.monotonic()
+            reason = "DJI input paused: Wi-Fi gap; center the left stick when input returns"
+            if self.input["driver"] != "manual":
+                owner, session = self.owner, self.remote_session
+                stopped_epoch = await self.stop(reason)
+                if (stopped_epoch is not None and self.epoch == stopped_epoch
+                        and self.remote_session == session and self.input["source"] == "dji"
+                        and self.train["status"] == "connected" and owner is not None
+                        and not getattr(owner, "closed", False)
+                        and time.monotonic() - self.last_heartbeat <= 1.5):
+                    # Keep the browser session without refreshing its heartbeat.
+                    self.owner = owner
+                elif self.owner is None:
+                    self.input["source"] = "manual"
+            self.log("input", "INFO", reason, level="warning")
+            self.dirty.set()
 
     async def watchdog(self):
         while not self.closed:
@@ -363,8 +520,11 @@ class Controller:
             reason = None
             if self.owner is not None and now - self.last_heartbeat > 1.5:
                 reason = "Stopped: browser heartbeat lost"
-            elif self.train["power"] and self.input["source"] == "dji" and now - self.last_remote_sample > 0.6:
-                reason = "Stopped: controller input lost"
+            elif self.input["source"] == "dji" and now - self.last_remote_sample >= 0.6:
+                await self.pause_remote_input()
+            if self.remote["status"] == "connected" and now - self.last_remote_sample >= 0.6:
+                self.remote.update(status="waiting", error="Controller input is stale; Wi-Fi readers are reconnecting.")
+                self.dirty.set()
             if reason:
                 await self.stop(reason)
                 self.input["source"] = "manual"
@@ -380,14 +540,23 @@ class Controller:
                     self.log("app", "ERROR", f"Auto power off failed: {error}", level="error")
 
     async def disconnect_remote(self):
+        async with self.remote_lifecycle_lock:
+            await self._disconnect_remote()
+
+    async def _disconnect_remote(self):
+        self.remote_session += 1
         if self.remote_task:
             self.remote_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self.remote_task
             self.remote_task = None
-        if self.input["source"] == "dji":
-            await self.stop("Stopped: controller disconnected")
-            self.input["source"] = "manual"
+        await self.disable_remote_input("DJI input disabled: controller disconnected")
+        self.last_remote_sample = 0
+        self.remote_revision += 1
+        self.remote_sample = None
+        self.remote_paused = False
+        self.remote_ready.clear()
+        self.previous_remote_controls = None
         self.remote.update(status="disconnected", axes={}, buttons={}, axis_raw={}, error=None)
         self.log("controller", "INFO", "Controller disconnected")
 
@@ -397,86 +566,140 @@ class Controller:
         address = ipaddress.IPv4Address(ip)
         if not address.is_private or address.is_unspecified or address.is_multicast:
             raise ValueError("Enter the remote's private IPv4 address on your local network.")
-        await self.disconnect_remote()
-        self.remote.update(status="connecting", ip=str(address), error=None)
-        self.log("controller", "INFO", f"Connecting to DJI input at {address}:40007…")
-        self.remote_task = asyncio.create_task(self.remote_stream(str(address)))
+        async with self.remote_lifecycle_lock:
+            await self._disconnect_remote()
+            self.remote.update(status="connecting", ip=str(address), error=None)
+            self.log("controller", "INFO", f"Connecting to DJI input at {address}:40007…")
+            self.remote_task = asyncio.create_task(self.remote_stream(str(address)))
+
+    def publish_remote_sample(self, controls, received_at, packet=None):
+        """Overwrite the mailbox without waiting for Bluetooth output."""
+        now = time.monotonic()
+        if received_at < self.last_remote_sample or not 0 <= now - received_at < 0.6:
+            return False
+        # A missing axis must never be interpreted as a centered stick.
+        axis = controls.get("axes", {}).get("left_y")
+        if isinstance(axis, bool) or not isinstance(axis, (int, float)) or not math.isfinite(axis):
+            return False
+        first = self.previous_remote_controls is None
+        self.last_remote_sample = received_at
+        self.remote_paused = False
+        self.remote_revision += 1
+        self.remote_sample = (self.remote_revision, received_at, controls)
+        self.remote.update(status="connected", axes=controls["axes"],
+                           buttons=controls.get("buttons", {}), axis_raw=controls.get("axis_raw", {}),
+                           mode=controls.get("mode"), error=None)
+        if first:
+            self.log("controller", "INFO", "DJI Wi-Fi controls received. Left stick controls forward and reverse; other actions stay on the computer.")
+        elif controls != self.previous_remote_controls and now - self.last_remote_log >= 0.1:
+            self.log("controller", "RX", f"Controller input · {controls.get('mode', 'unknown')} mode", packet)
+            self.last_remote_log = now
+        self.previous_remote_controls = controls
+        self.remote_ready.set()
+        self.dirty.set()
+        return True
+
+    def left_stick_drive(self, controls):
+        """Map only left-stick vertical travel to signed motor power."""
+        axis = controls.get("axes", {}).get("left_y")
+        if isinstance(axis, bool) or not isinstance(axis, (int, float)) or not math.isfinite(axis):
+            return None
+        position = max(-1, min(1, axis - self.input["center"]))
+        if self.input["invert"]:
+            position = -position
+        deadzone = self.input["deadzone"]
+        magnitude = min(1, max(0, (abs(position) - deadzone) / (1 - deadzone)))
+        power = round(math.copysign(magnitude * self.input["max_power"], position))
+        return {"position": round(position, 4), "power": power}
+
+    async def apply_remote_sample(self, revision, received_at, controls):
+        if (revision != self.remote_revision or time.monotonic() - received_at >= 0.6
+                or self.input["source"] != "dji" or self.owner is None):
+            return
+        left_stick = self.left_stick_drive(controls)
+        if left_stick is None:
+            return
+        if abs(left_stick["position"]) <= self.input["deadzone"]:
+            if self.input["neutral_required"] and received_at <= self.neutral_after:
+                return
+            self.input.update(neutral_required=False, manual_override=False)
+            # Center hands control back without canceling computer movement.
+            if self.train["power"] and self.input["driver"] == "dji":
+                await self.drive(0, self.owner, "dji", revision, received_at)
+        elif not self.input["neutral_required"] and not self.input["manual_override"]:
+            desired = left_stick["power"]
+            if desired != self.train["power"] or self.input["driver"] != "dji":
+                await self.drive(desired, self.owner, "dji", revision, received_at)
+        self.dirty.set()
+
+    async def consume_remote_samples(self):
+        while True:
+            await self.remote_ready.wait()
+            self.remote_ready.clear()
+            if self.remote_sample is not None:
+                await self.apply_remote_sample(*self.remote_sample)
+
+    async def remote_reader(self, ip, index):
+        await asyncio.sleep(index * 0.5)
+        while True:
+            writer, had_controls = None, False
+            try:
+                reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 40007), 0.3)
+                if self.remote["status"] == "connecting":
+                    self.remote["status"] = "waiting"
+                    self.dirty.set()
+                parser = dji_remote.PacketParser()
+                last_valid = time.monotonic()
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(reader.read(8192), 0.05)
+                    except TimeoutError:
+                        chunk = None
+                    received_at = time.monotonic()
+                    if chunk == b"":
+                        raise ConnectionError("The controller closed the connection.")
+                    for packet in parser.feed(chunk) if chunk else []:
+                        controls = dji_remote.decode_controls(packet)
+                        if controls is not None:
+                            had_controls, last_valid = True, received_at
+                            self.publish_remote_sample(controls, received_at, packet)
+                    if received_at - last_valid > 5:
+                        raise ConnectionError("No valid controller frames for 5 seconds.")
+            except asyncio.CancelledError:
+                raise
+            except PermissionError as error:
+                raise PermissionError("Local network access denied. Allow network access for the app.") from error
+            except (OSError, TimeoutError):
+                # RM330 closes links frequently; every reader recovers independently.
+                pass
+            finally:
+                if writer is not None:
+                    writer.close()
+                    with suppress(Exception):
+                        await asyncio.wait_for(writer.wait_closed(), 0.3)
+            await asyncio.sleep(0.1 if had_controls else 0.35)
 
     async def remote_stream(self, ip):
-        writer = None
+        workers = [asyncio.create_task(self.remote_reader(ip, index), name=f"dji-reader-{index + 1}")
+                   for index in range(5)]
+        workers.append(asyncio.create_task(self.consume_remote_samples(), name="dji-latest-input"))
+        self.log("controller", "INFO", "Listening through five staggered, receive-only Wi-Fi connections.")
+        error = None
         try:
-            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 40007), 4)
-            self.remote["status"] = "waiting"
-            self.log("controller", "INFO", "TCP connected. Waiting for valid DJI stick/button frames.")
-            parser, previous, sequence = dji_remote.PacketParser(), None, 1
-            next_query, last_valid, last_log = 0, time.monotonic(), 0
-            while True:
-                now = time.monotonic()
-                if now >= next_query:
-                    packet = dji_remote.version_query(sequence)
-                    writer.write(packet)
-                    await writer.drain()
-                    sequence = (sequence + 1) & 0xFFFF
-                    next_query = now + 0.5
-                try:
-                    chunk = await asyncio.wait_for(reader.read(8192), 0.2)
-                except TimeoutError:
-                    chunk = None
-                if chunk == b"":
-                    raise ConnectionError("The controller closed the connection.")
-                for packet in parser.feed(chunk) if chunk else []:
-                    controls = dji_remote.decode_controls(packet)
-                    if controls is None:
-                        continue
-                    last_valid = self.last_remote_sample = time.monotonic()
-                    self.remote.update(status="connected", axes=controls["axes"],
-                                       buttons=controls["buttons"], axis_raw=controls["axis_raw"],
-                                       mode=controls["mode"], error=None)
-                    if previous is None:
-                        self.input["neutral_required"] = True
-                        self.log("controller", "INFO", "DJI controls received. Verify axes and buttons before choosing DJI input.")
-                    elif controls != previous and now - last_log >= 0.1:
-                        self.log("controller", "RX", f"Controller input · {controls['mode']} mode", packet)
-                        last_log = now
-                    if self.input["source"] == "dji" and self.owner is not None:
-                        axis = controls["axes"].get(self.input["axis"], 0) - self.input["center"]
-                        if self.input["invert"]:
-                            axis = -axis
-                        deadzone = self.input["deadzone"]
-                        stop_pressed = controls["buttons"].get(self.input["stop_button"], False)
-                        if stop_pressed:
-                            await self.stop("Stopped by controller button")
-                            self.input["source"] = "manual"
-                        elif abs(axis) <= deadzone:
-                            self.input["neutral_required"] = False
-                            if self.train["power"]:
-                                await self.drive(0, self.owner, "dji")
-                        elif not self.input["neutral_required"]:
-                            magnitude = min(1, max(0, (abs(axis) - deadzone) / (1 - deadzone)))
-                            desired = round(math.copysign(magnitude * self.input["max_power"], axis))
-                            if desired != self.train["power"]:
-                                await self.drive(desired, self.owner, "dji")
-                        horn_button = self.input["horn_button"]
-                        if previous and controls["buttons"].get(horn_button) and not previous["buttons"].get(horn_button):
-                            await self.write(sound_packet(self.train["hub_type"], "horn"), "Play train horn")
-                    previous = controls
-                    self.dirty.set()
-                if time.monotonic() - last_valid > 5:
-                    raise ConnectionError("No valid controller frames. Check the model, IP address and Wi-Fi input service.")
+            await asyncio.gather(*workers)
         except asyncio.CancelledError:
             raise
-        except Exception as error:
-            self.remote.update(status="error", error=str(error), axes={}, buttons={}, axis_raw={})
-            if self.input["source"] == "dji":
-                await self.stop("Stopped: controller connection lost")
-                self.input["source"] = "manual"
-            self.log("controller", "ERROR", str(error), level="error")
+        except Exception as caught:
+            error = caught
         finally:
-            if writer:
-                writer.close()
-                with suppress(Exception):
-                    await writer.wait_closed()
+            for task in workers:
+                task.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
             self.dirty.set()
+        if error is not None:
+            self.remote.update(status="error", error=str(error), axes={}, buttons={}, axis_raw={})
+            await self.disable_remote_input("DJI input disabled: controller connection lost")
+            self.log("controller", "ERROR", str(error), level="error")
 
     async def action(self, action, args, owner):
         if action == "connect":
@@ -486,10 +709,15 @@ class Controller:
         elif action == "drive":
             await self.drive(args.get("power"), owner)
         elif action == "stop":
-            await self.stop()
-            self.activity()
-            if self.input["source"] == "dji":
+            if "disarm" in args and not isinstance(args["disarm"], bool):
+                raise ValueError("Disarm must be true or false.")
+            if args.get("disarm"):
                 self.input["source"] = "manual"
+            await self.computer_stop(owner)
+        elif action == "suspend":
+            if self.owner is owner:
+                self.input["source"] = "manual"
+                await self.stop("Stopped: control window inactive")
         elif action == "light":
             color = args.get("color")
             await self.write(light_packet(self.train["hub_type"], color), f"Set headlight: {color}")
@@ -505,10 +733,7 @@ class Controller:
             minutes = args.get("idle_minutes")
             if type(minutes) is not int or minutes not in (0, 1, 5, 10, 15, 30):
                 raise ValueError("Choose a supported idle time.")
-            if self.settings_path:
-                temporary = self.settings_path.with_suffix(".tmp")
-                temporary.write_text(json.dumps({"idle_minutes": minutes}) + "\n")
-                temporary.replace(self.settings_path)
+            self.save_settings(idle_minutes=minutes)
             self.idle_minutes = minutes
             self.activity()
             self.log("app", "INFO", "App auto power off: disabled" if not minutes else f"App auto power off: {minutes} minute(s) idle")
@@ -533,21 +758,22 @@ class Controller:
                 raise ValueError("Choose Keyboard & buttons or DJI remote.")
             if self.owner is not None and self.owner is not owner:
                 raise ValueError("Stop the active control window before switching input.")
-            if source == "dji" and (self.remote["status"] != "connected" or self.train["status"] != "connected"):
+            if source == "dji" and (not self.remote_input_fresh() or self.train["status"] != "connected"):
                 raise ValueError("Connect the train and receive valid controller input first.")
+            self.save_settings(left_stick_enabled=source == "dji")
+            self.input["left_stick_enabled"] = source == "dji"
             await self.stop("Stopped before switching input")
             self.input["source"] = source
             if source == "dji":
                 self.claim(owner)
-            self.log("input", "INFO", f"Input source: {'DJI remote · center the stick to begin' if source == 'dji' else 'Keyboard & buttons'}")
+                self.neutral_after = time.monotonic()
+            self.log("input", "INFO", f"Driving controls: {'Computer + DJI left stick · center the stick to begin' if source == 'dji' else 'Computer only'}")
         elif action == "configure":
             config = dict(self.input)
-            for key in ("axis", "stop_button", "horn_button"):
-                allowed = dji_remote.AXES if key == "axis" else dji_remote.BUTTONS
-                if key in args:
-                    if args[key] not in allowed:
-                        raise ValueError(f"Unknown {key}.")
-                    config[key] = args[key]
+            if "axis" in args and args["axis"] != "left_y":
+                raise ValueError("Only the DJI left stick's vertical axis controls the train.")
+            if "stop_button" in args or "horn_button" in args:
+                raise ValueError("DJI buttons do not control train actions. Use the computer controls.")
             if "deadzone" in args:
                 config["deadzone"] = finite_number(args["deadzone"], 0.02, 0.4, "Dead zone")
             if "max_power" in args:
@@ -556,16 +782,19 @@ class Controller:
                 if not isinstance(args["invert"], bool):
                     raise ValueError("Invert must be true or false.")
                 config["invert"] = args["invert"]
+                self.save_settings(invert=config["invert"])
             if self.input["source"] == "dji":
-                await self.stop("Stopped before updating controller settings")
-                self.input["source"] = "manual"
-            config.update(source=self.input["source"], neutral_required=True)
+                await self.computer_stop(owner, "Stopped before updating controller settings")
+            config.update(source=self.input["source"], neutral_required=True,
+                          left_stick_enabled=self.input["left_stick_enabled"],
+                          manual_override=self.input["manual_override"], driver=self.input["driver"])
+            self.neutral_after = time.monotonic()
             self.input = config
         elif action == "calibrate":
-            if self.remote["status"] != "connected":
+            if not self.remote_input_fresh():
                 raise ValueError("Connect the controller first.")
-            await self.stop("Stopped for controller calibration")
-            self.input.update(source="manual", center=self.remote["axes"].get(self.input["axis"], 0))
+            await self.computer_stop(owner, "Stopped for controller calibration")
+            self.input.update(center=self.remote["axes"]["left_y"])
             self.log("input", "INFO", "Centered controller axis")
         elif action == "remote_connect":
             await self.connect_remote(args.get("ip", ""))
@@ -644,7 +873,9 @@ def create_app(demo=False, settings_path=None):
                     if not isinstance(data, dict):
                         raise ValueError("Expected an action object.")
                     if data.get("type") == "heartbeat":
-                        if controller.owner is ws:
+                        if data.get("active") is True:
+                            controller.activate_default_input(ws)
+                        if controller.owner is ws and data.get("active") is not False:
                             controller.last_heartbeat = time.monotonic()
                         continue
                     if len(pending) >= 20:

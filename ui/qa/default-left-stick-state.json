@@ -1,0 +1,37 @@
+{
+  "train": {
+    "status": "connected",
+    "battery": 100,
+    "power": 0
+  },
+  "controller": {
+    "status": "connecting",
+    "ip": "192.168.1.91"
+  },
+  "input": {
+    "source": "manual",
+    "axis": "left_y",
+    "invert": true,
+    "left_stick_enabled": true,
+    "deadzone": 0.08,
+    "center": 0,
+    "max_power": 12,
+    "neutral_required": true,
+    "manual_override": false,
+    "driver": null
+  },
+  "left_stick": {
+    "position": null,
+    "power": null,
+    "available": false
+  },
+  "saved_preferences": {
+    "idle_minutes": 0,
+    "left_stick_enabled": true,
+    "invert": true
+  },
+  "wifi_discovery": {
+    "network": "192.168.1.0/24",
+    "candidates": []
+  }
+}
