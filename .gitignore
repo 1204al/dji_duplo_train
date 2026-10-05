@@ -1,0 +1,15 @@
+.venv/
+.venv-dji-usb/
+.venv-iphone-capture/
+captures/
+.uv-cache/
+__pycache__/
+*.pyc
+dji_remote_capture*.ndjson
+dji_usb_capture*.ndjson
+ui/node_modules/
+ui/dist/
+ui/.vite/
+.DS_Store
+.duplo-settings.json
+.duplo-settings.tmp

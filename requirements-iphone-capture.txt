@@ -1,0 +1,2 @@
+# Optional, isolated iPhone Bluetooth capture tool. Not a web-server dependency.
+pymobiledevice3==11.23.0

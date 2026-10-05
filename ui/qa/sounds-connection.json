@@ -1,0 +1,95 @@
+{
+  "state": {
+    "train": {
+      "status": "error",
+      "name": null,
+      "address": null,
+      "hub_type": 33,
+      "battery": null,
+      "rssi": null,
+      "power": 0,
+      "light": "off",
+      "error": "No train found. Switch it on nearby and close the LEGO phone app, then retry.",
+      "measured_speed": null,
+      "tag": null,
+      "tag_name": null,
+      "ports": {},
+      "firmware": null,
+      "modes": {},
+      "mode_formats": {},
+      "bluetooth_services": [],
+      "purple_events": 0,
+      "purple_at": null,
+      "shutdown_reason": null
+    },
+    "controller": {
+      "status": "disconnected",
+      "ip": "",
+      "axes": {},
+      "buttons": {},
+      "axis_raw": {},
+      "mode": null,
+      "error": null
+    },
+    "input": {
+      "source": "manual",
+      "axis": "left_y",
+      "invert": false,
+      "deadzone": 0.08,
+      "center": 0,
+      "max_power": 12,
+      "stop_button": "rth_pause",
+      "horn_button": "c1",
+      "neutral_required": true
+    },
+    "demo": false,
+    "sounds": [
+      "horn",
+      "starting"
+    ],
+    "service": "00001623-1212-efde-1623-785feabcd123",
+    "characteristic": "00001624-1212-efde-1623-785feabcd123",
+    "settings": {
+      "idle_minutes": 0,
+      "idle_remaining_seconds": null
+    }
+  },
+  "logs": [
+    {
+      "id": 1,
+      "time": "2026-10-05T09:43:15.018+00:00",
+      "source": "app",
+      "direction": "INFO",
+      "message": "Ready. Connect your train to begin.",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 2,
+      "time": "2026-10-05T09:43:57.161+00:00",
+      "source": "train",
+      "direction": "INFO",
+      "message": "Searching for nearby DUPLO trains\u2026",
+      "raw": "",
+      "level": "info"
+    },
+    {
+      "id": 3,
+      "time": "2026-10-05T09:44:04.255+00:00",
+      "source": "train",
+      "direction": "ERROR",
+      "message": "No train found. Switch it on nearby and close the LEGO phone app, then retry.",
+      "raw": "",
+      "level": "error"
+    },
+    {
+      "id": 4,
+      "time": "2026-10-05T09:44:04.255+00:00",
+      "source": "app",
+      "direction": "ERROR",
+      "message": "No train found. Switch it on nearby and close the LEGO phone app, then retry.",
+      "raw": "",
+      "level": "error"
+    }
+  ]
+}
