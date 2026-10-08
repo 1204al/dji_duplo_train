@@ -9,17 +9,21 @@ import {
   BatteryLow,
   BatteryMedium,
   Bluetooth,
+  GameController,
   Play,
+  Plugs,
   Power,
   Square,
   Terminal,
+  Train,
   WarningCircle,
+  X,
 } from "@phosphor-icons/react";
 import { useBridge } from "./bridge.js";
 import DebugPanel from "./DebugPanel.jsx";
 import PurpleSound from "./PurpleSound.jsx";
 import RemoteCard from "./RemoteCard.jsx";
-import { Panel, Switch, readStored, writeStored } from "./parts.jsx";
+import { Panel, Switch, readStored } from "./parts.jsx";
 
 const COLORS = {
   white: "#eceef2",
@@ -50,6 +54,21 @@ const DRIVE_ACTIONS = [
 const capitalize = (text) => text[0].toUpperCase() + text.slice(1);
 const minutesSeconds = (seconds) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+const tryText = (attempt) => `Connecting · try ${attempt.try} of ${attempt.of}`;
+
+// One device in the top bar: live state plus its Stop / Reconnect action.
+function Device({ icon: Icon, name, text, tone, detail, action }) {
+  return (
+    <div className={`device status ${tone}`}>
+      <span className="dot" aria-hidden="true" />
+      <Icon size={17} aria-hidden="true" />
+      <strong>{name}</strong>
+      <span aria-live="polite">{text}</span>
+      {detail}
+      {action}
+    </div>
+  );
+}
 
 function Battery({ level }) {
   const Icon =
@@ -74,9 +93,7 @@ function Battery({ level }) {
 
 export function App() {
   const { state, logs, setLogs, online, error, setError, send } = useBridge();
-  const [debugOpen, setDebugOpen] = useState(
-    () => readStored("duplo-debug-open") === "1",
-  );
+  const [debugOpen, setDebugOpen] = useState(true);
   const [speed, setSpeed] = useState(35);
   const [hold, setHold] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -93,9 +110,18 @@ export function App() {
     light: "off",
   };
   const input = state?.input || {};
+  const remote = state?.controller || { status: "disconnected" };
+  const attempts = state?.attempts || {};
+  const demo = Boolean(state?.demo);
   const connected = online && train.status === "connected";
+  const trainTrying = online && Boolean(attempts.train);
+  const remoteTrying = online && Boolean(attempts.remote);
   const working =
-    busy || ["scanning", "connecting", "powering_off"].includes(train.status);
+    busy ||
+    trainTrying ||
+    ["scanning", "connecting", "powering_off"].includes(train.status);
+  // The DJI remote can still be offered on the start card.
+  const remoteNeeded = !demo && remote.status !== "connected" && !remoteTrying;
   const moving = connected && train.power !== 0;
   const idleMinutes = state?.settings?.idle_minutes ?? 0;
   const idleLeft = state?.settings?.idle_remaining_seconds;
@@ -220,11 +246,20 @@ export function App() {
     }, 140);
   };
 
-  const toggleConnection = async () => {
+  const disconnectTrain = async () => {
     setBusy(true);
-    await perform(connected ? "disconnect" : "connect", { address });
+    await perform("disconnect");
     setBusy(false);
   };
+
+  // Each device is tried several times in the background and can be stopped on its own.
+  const connectDevices = (targets) =>
+    perform("auto_connect", {
+      targets,
+      address,
+      ip: readStored("duplo-remote-ip"),
+    });
+  const stopConnecting = (targets) => perform("stop_connecting", { targets });
 
   const turnOff = async () => {
     setBusy(true);
@@ -236,35 +271,80 @@ export function App() {
   };
 
   const toggleDebug = () => {
-    writeStored("duplo-debug-open", debugOpen ? "0" : "1");
-    setDebugOpen(!debugOpen);
+    setDebugOpen((open) => !open);
   };
 
-  const [statusText, statusTone] = !online
+  const [trainText, trainTone] = !online
     ? ["App server offline", "error"]
     : train.status === "powering_off"
       ? ["Turning off…", "busy"]
-      : train.status === "scanning"
-        ? ["Searching…", "busy"]
+      : trainTrying
+        ? [tryText(attempts.train), "busy"]
         : working
           ? [connected ? "Disconnecting…" : "Connecting…", "busy"]
           : connected
             ? ["Connected", "ok"]
             : train.status === "error"
-              ? ["Connection failed", "error"]
+              ? ["Failed", "error"]
               : ["Not connected", ""];
 
-  const connectLabel = working
-    ? train.status === "powering_off"
-      ? "Turning off…"
-      : connected
-        ? "Disconnecting…"
-        : "Connecting…"
-    : connected
-      ? "Disconnect"
-      : train.status === "error"
-        ? "Try again"
-        : "Connect train";
+  const [remoteText, remoteTone] = demo
+    ? ["Off in Demo", ""]
+    : remoteTrying
+      ? [tryText(attempts.remote), "busy"]
+      : remote.status === "connected"
+        ? ["Connected", "ok"]
+        : remote.status === "scanning"
+          ? ["Searching…", "busy"]
+          : remote.status === "waiting" && remote.error
+            ? ["Input lost", "busy"]
+            : ["connecting", "waiting"].includes(remote.status)
+              ? ["Connecting…", "busy"]
+              : remote.status === "error"
+                ? ["Failed", "error"]
+                : ["Not connected", ""];
+
+  const stopButton = (targets, name) => (
+    <button
+      className="button small"
+      aria-label={`Stop connecting ${name}`}
+      onClick={() => stopConnecting(targets)}
+    >
+      <X size={14} /> Stop
+    </button>
+  );
+  const reconnectButton = (target, tried) => (
+    <button className="button small" onClick={() => connectDevices([target])}>
+      <ArrowClockwise size={14} /> {tried ? "Reconnect" : "Connect"}
+    </button>
+  );
+
+  const trainAction = !online ? null : trainTrying ? (
+    stopButton(["train"], "the train")
+  ) : connected ? (
+    <button
+      className="button small"
+      onClick={disconnectTrain}
+      disabled={working}
+    >
+      Disconnect
+    </button>
+  ) : working ? null : (
+    reconnectButton("train", train.status === "error" || train.name)
+  );
+
+  const remoteAction =
+    !online || demo
+      ? null
+      : remoteTrying
+        ? stopButton(["remote"], "the DJI remote")
+        : ["disconnected", "error"].includes(remote.status) ||
+            (remote.status === "waiting" && remote.error)
+          ? reconnectButton(
+              "remote",
+              remote.status !== "disconnected" || remote.ip,
+            )
+          : null;
 
   const driveState = !connected
     ? "Not connected"
@@ -272,7 +352,12 @@ export function App() {
       ? `${train.power > 0 ? "Forward" : "Backward"} · ${Math.abs(train.power)}%`
       : "Stopped";
 
-  const currentError = error || train.error || state?.controller?.error;
+  // Errors between automatic tries stay in the debug log until the last try fails.
+  const currentError =
+    error ||
+    (!trainTrying && train.error) ||
+    (!remoteTrying && remote.error) ||
+    "";
   const shownError = currentError !== dismissedError ? currentError : "";
 
   return (
@@ -288,23 +373,38 @@ export function App() {
           <p>Drive your LEGO DUPLO train from this Mac</p>
         </div>
         <div className="topbar-actions">
-          <span className={`status ${statusTone}`} aria-live="polite">
-            <span className="dot" aria-hidden="true" />
-            {statusText}
-            {connected && train.battery != null && (
-              <Battery level={train.battery} />
+          <div className="devices" aria-label="Connections">
+            <Device
+              icon={Train}
+              name="Train"
+              text={trainText}
+              tone={trainTone}
+              detail={
+                connected &&
+                train.battery != null && <Battery level={train.battery} />
+              }
+              action={trainAction}
+            />
+            <Device
+              icon={GameController}
+              name="DJI remote"
+              text={remoteText}
+              tone={remoteTone}
+              detail={
+                remote.status === "connected" &&
+                remote.ip && <span className="device-detail">{remote.ip}</span>
+              }
+              action={remoteAction}
+            />
+            {trainTrying && remoteTrying && (
+              <button
+                className="button small"
+                onClick={() => stopConnecting(["train", "remote"])}
+              >
+                <X size={14} /> Stop both
+              </button>
             )}
-          </span>
-          {(connected || working) && (
-            <button
-              className="button"
-              onClick={toggleConnection}
-              disabled={!online || working}
-            >
-              {working && <ArrowClockwise className="spin" size={16} />}
-              {connectLabel}
-            </button>
-          )}
+          </div>
           <button
             className="button"
             aria-pressed={debugOpen}
@@ -340,11 +440,25 @@ export function App() {
             <section className="card intro" aria-labelledby="intro-title">
               {online ? (
                 <>
-                  <h2 id="intro-title">Connect your train</h2>
+                  <h2 id="intro-title">
+                    {remoteNeeded
+                      ? "Connect your train and remote"
+                      : "Connect your train"}
+                  </h2>
                   <ol>
-                    <li>Turn the train on (green button) and keep it near.</li>
-                    <li>Close the LEGO DUPLO app on your phone.</li>
-                    <li>Click Connect train.</li>
+                    <li>
+                      Turn the train on (green button), keep it near and close
+                      the LEGO DUPLO app on your phone.
+                    </li>
+                    {remoteNeeded && (
+                      <li>Turn on the DJI remote and join this Mac’s Wi-Fi.</li>
+                    )}
+                    <li>
+                      {remoteNeeded
+                        ? "Connect both, or just one."
+                        : "Click Connect train."}{" "}
+                      Each is tried up to {state?.connect_tries ?? 5} times.
+                    </li>
                   </ol>
                   {train.shutdown_reason && (
                     <p className="hint">
@@ -352,12 +466,39 @@ export function App() {
                       it.
                     </p>
                   )}
-                  <button
-                    className="button primary large"
-                    onClick={toggleConnection}
-                  >
-                    <Bluetooth size={18} /> {connectLabel}
-                  </button>
+                  <div className="row">
+                    <button
+                      className="button primary large"
+                      onClick={() =>
+                        connectDevices(
+                          remoteNeeded ? ["train", "remote"] : ["train"],
+                        )
+                      }
+                    >
+                      <Plugs size={18} />
+                      {remoteNeeded
+                        ? "Connect both"
+                        : train.status === "error"
+                          ? "Try again"
+                          : "Connect train"}
+                    </button>
+                    {remoteNeeded && (
+                      <>
+                        <button
+                          className="button large"
+                          onClick={() => connectDevices(["train"])}
+                        >
+                          <Bluetooth size={18} /> Train only
+                        </button>
+                        <button
+                          className="button large"
+                          onClick={() => connectDevices(["remote"])}
+                        >
+                          <GameController size={18} /> Remote only
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <p className="hint">
                     For safety, the train stops when you leave this window.
                   </p>

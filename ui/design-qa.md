@@ -138,3 +138,26 @@ After the user switched it on, the real 10427 connected successfully. Battery 10
 - [x] Desktop/narrow layouts, empty/error states and console reviewed.
 - [x] Live train connection, effect commands, brief motor command and Stop feedback.
 - [ ] Physical remote mapping check. The current standalone DJI tests pass.
+
+## DJI discovery check — 2026-10-07
+
+The DJI panel now has **Search and connect**, a searching state with Cancel, inline failure feedback, and manual IP entry. The live app selected `192.168.1.0/24`, completed a search with no verified remote found, and successfully cancelled a second search. The real train reconnected with battery 100% and requested power 0.
+
+A temporary server on a separate localhost port supplied simulated verified remote input. Browser checks confirmed automatic connection, IP fill (`192.168.1.91`), and persistence after disconnect and reload. This verifies the UI/WebSocket path; live remote discovery success still needs a powered-on remote advertising its stick stream. The temporary server and tab were closed. The main browser reported no warning/error logs. Screenshot: `qa/search-and-connect.jpg`.
+
+Validation: all 84 Python tests and seven UI tests passed; `npm run build` and `git diff --check` passed. Discovery tests cover valid/invalid packets, unrelated open services, no or multiple candidates, network errors, cancellation, duplicate searches, manual takeover, shutdown cleanup, and WebSocket/heartbeat/Stop responsiveness during search.
+
+## Automatic connection check — 2026-10-08
+
+The start card now has **Connect both**, **Train only** and **Remote only**, and the top bar shows a Train and a DJI remote status pill. A temporary localhost server simulated no train nearby and a remote found on the third Wi-Fi search. Browser checks confirmed:
+
+- both devices showing `Connecting · try N of 5` with their own **Stop** plus **Stop both**;
+- stopping only the train while the remote kept trying and then connected (`192.168.1.91`);
+- the train failing all five tries, then showing **Failed · Reconnect** with the reason in the banner;
+- **Reconnect** and **Stop** working from the top bar;
+- the 375 px layout;
+- the Demo state (train connected with battery and **Disconnect**, remote "Off in Demo").
+
+The temporary server was stopped and the browser console had no errors. Physical retries with the real train and remote are not yet checked.
+
+Validation: all 90 Python tests and four UI tests passed; `npm run build` and `git diff --check` passed.

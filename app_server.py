@@ -34,6 +34,11 @@ def finite_number(value, minimum, maximum, name):
 
 
 class Controller:
+    # Automatic connection: tries per device and the pause between them.
+    connect_tries = 5
+    retry_delay = 2
+    remote_input_timeout = 5
+
     def __init__(self, demo=False, settings_path=None):
         self.demo = demo
         self.train = {"status": "disconnected", "name": None, "address": None,
@@ -89,6 +94,9 @@ class Controller:
         self.computer_stop_lock = asyncio.Lock()
         self.stops_pending = 0
         self.remote_task = None
+        self.remote_search_task = None
+        self.connect_tasks = {"train": None, "remote": None}
+        self.attempts = {"train": None, "remote": None}
         self.tasks = set()
         self.dirty = asyncio.Event()
         self.closed = False
@@ -107,6 +115,7 @@ class Controller:
         left_stick = self.left_stick_drive(self.remote)
         return {"train": dict(self.train), "controller": dict(self.remote),
                 "input": dict(self.input), "demo": self.demo,
+                "attempts": dict(self.attempts), "connect_tries": self.connect_tries,
                 "left_stick": {**(left_stick or {"position": None, "power": None}),
                                "available": left_stick is not None and self.remote_input_fresh()},
                 "sounds": list(SOUNDS) if self.train["hub_type"] == 0x20 else list(INTERACTIVE_SOUNDS),
@@ -281,6 +290,7 @@ class Controller:
                 self.dirty.set()
 
     async def disconnect_train(self):
+        await self.stop_connecting("train")
         async with self.lifecycle_lock:
             await self.stop("Stopped before disconnecting")
             if self.client is not None:
@@ -545,6 +555,23 @@ class Controller:
 
     async def _disconnect_remote(self):
         self.remote_session += 1
+        was_linked = self.remote["status"] not in ("disconnected", "error")
+        # Automatic tries call this between attempts; only outside callers cancel them.
+        retry = self.connect_tasks["remote"]
+        if retry and retry is not asyncio.current_task():
+            self.connect_tasks["remote"] = None
+            retry.cancel()
+            with suppress(asyncio.CancelledError):
+                await retry
+            # A task cancelled before it started never runs its own cleanup.
+            self.attempts["remote"] = None
+        if self.remote_search_task:
+            search = self.remote_search_task
+            self.remote_search_task = None
+            if search is not asyncio.current_task():
+                search.cancel()
+                with suppress(asyncio.CancelledError):
+                    await search
         if self.remote_task:
             self.remote_task.cancel()
             with suppress(asyncio.CancelledError):
@@ -558,7 +585,8 @@ class Controller:
         self.remote_ready.clear()
         self.previous_remote_controls = None
         self.remote.update(status="disconnected", axes={}, buttons={}, axis_raw={}, error=None)
-        self.log("controller", "INFO", "Controller disconnected")
+        if was_linked:
+            self.log("controller", "INFO", "Controller disconnected")
 
     async def connect_remote(self, ip):
         if self.demo:
@@ -571,6 +599,153 @@ class Controller:
             self.remote.update(status="connecting", ip=str(address), error=None)
             self.log("controller", "INFO", f"Connecting to DJI input at {address}:40007…")
             self.remote_task = asyncio.create_task(self.remote_stream(str(address)))
+
+    async def search_remote(self):
+        if self.demo:
+            raise ValueError("DJI hardware connections are disabled in Demo. Open the local controller to connect.")
+        async with self.remote_lifecycle_lock:
+            if self.remote_search_task is not None:
+                return
+            if self.remote["status"] in ("connecting", "waiting", "connected"):
+                raise ValueError("Disconnect the current DJI remote before searching again.")
+            await self._disconnect_remote()
+            self.remote.update(status="scanning", error=None)
+            self.log("controller", "INFO", "Searching this Mac's Wi-Fi network for a DJI remote…")
+            self.remote_search_task = asyncio.create_task(self.discover_remote())
+
+    async def find_remote(self):
+        """Return the IP of the only DJI stick-input stream on this Mac's Wi-Fi."""
+        try:
+            network = await asyncio.to_thread(dji_remote.local_network)
+        except ValueError as error:
+            raise ValueError("Couldn't choose the Wi-Fi network automatically. Connect this Mac to the remote's Wi-Fi network, or enter its IP address below.") from error
+        self.log("controller", "INFO", f"Searching {network} for DJI stick input on TCP 40007…")
+        candidates = await asyncio.to_thread(dji_remote.scan, network, 40007)
+        verified = [item for item in candidates if item.get("controls_verified")]
+        if not verified:
+            raise ValueError("No DJI remote found. Turn it on, connect it to the same Wi-Fi as this Mac, then try again or enter its IP address below.")
+        if len(verified) > 1:
+            addresses = ", ".join(item["ip"] for item in verified)
+            raise ValueError(f"Several DJI remotes found ({addresses}). Enter the IP address of the one you want below.")
+        ip = verified[0]["ip"]
+        self.log("controller", "INFO", f"Found DJI stick input at {ip}. Connecting…")
+        return ip
+
+    async def discover_remote(self):
+        try:
+            await self.connect_remote(await self.find_remote())
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.remote.update(status="error", error=str(error))
+            self.log("controller", "ERROR", str(error), level="error")
+        finally:
+            if self.remote_search_task is asyncio.current_task():
+                self.remote_search_task = None
+            self.dirty.set()
+
+    @staticmethod
+    def connect_targets(targets):
+        if (not isinstance(targets, list) or not targets
+                or not all(target in ("train", "remote") for target in targets)):
+            raise ValueError("Choose the train, the DJI remote or both.")
+        return dict.fromkeys(targets)
+
+    async def auto_connect(self, targets, address=None, ip=None):
+        """Start background tries for each chosen device that is not connected yet."""
+        targets = self.connect_targets(targets)
+        if not isinstance(address, (str, type(None))) or not isinstance(ip, (str, type(None))):
+            raise ValueError("Invalid connection details.")
+        if "remote" in targets and self.demo:
+            raise ValueError("DJI hardware connections are disabled in Demo. Open the local controller to connect.")
+        if "train" in targets and self.connect_tasks["train"] is None and self.train["status"] != "connected":
+            self.start_tries("train", lambda: self.connect_train(address or None))
+        if "remote" in targets and self.connect_tasks["remote"] is None and self.remote["status"] != "connected":
+            remembered = ip or self.remote["ip"] or None
+            self.start_tries("remote", lambda: self.remote_attempt(remembered))
+
+    def start_tries(self, device, attempt):
+        self.attempts[device] = {"try": 1, "of": self.connect_tries}
+        task = asyncio.create_task(self.tries(device, attempt))
+        self.connect_tasks[device] = task
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
+    async def tries(self, device, attempt):
+        name = {"train": "the train", "remote": "the DJI remote"}[device]
+        try:
+            for number in range(1, self.connect_tries + 1):
+                self.attempts[device] = {"try": number, "of": self.connect_tries}
+                self.dirty.set()
+                try:
+                    await attempt()
+                    return
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # Each attempt has already logged and shown its own error.
+                    if number == self.connect_tries:
+                        self.log("app", "ERROR", f"Couldn't connect {name} after {number} tries.", level="error")
+                    else:
+                        self.log("app", "INFO", f"Try {number} of {self.connect_tries} for {name} failed. Trying again…",
+                                 level="warning")
+                        await asyncio.sleep(self.retry_delay)
+        finally:
+            self.attempts[device] = None
+            if self.connect_tasks[device] is asyncio.current_task():
+                self.connect_tasks[device] = None
+            self.dirty.set()
+
+    async def remote_attempt(self, ip):
+        """One try: the remembered IP first, then a search of this Mac's Wi-Fi."""
+        try:
+            if ip:
+                try:
+                    await self.connect_remote(ip)
+                    await self.wait_for_remote_input()
+                    return
+                except ValueError as error:
+                    self.log("controller", "INFO", f"{error} Searching Wi-Fi instead…", level="warning")
+            async with self.remote_lifecycle_lock:
+                await self._disconnect_remote()
+                self.remote.update(status="scanning", error=None)
+            await self.connect_remote(await self.find_remote())
+            await self.wait_for_remote_input()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            async with self.remote_lifecycle_lock:
+                await self._disconnect_remote()
+            self.remote.update(status="error", error=str(error))
+            self.log("controller", "ERROR", str(error), level="error")
+            raise
+
+    async def wait_for_remote_input(self):
+        """Wait until the reader started by connect_remote receives stick input."""
+        deadline = time.monotonic() + self.remote_input_timeout
+        while not self.remote_input_fresh():
+            if self.remote["status"] == "error":
+                raise ValueError(self.remote["error"] or "The DJI remote connection failed.")
+            if time.monotonic() >= deadline:
+                raise ValueError(f"No stick input from {self.remote['ip']}.")
+            await asyncio.sleep(0.1)
+
+    async def stop_connecting(self, device):
+        """Cancel automatic tries. A device that already connected stays connected."""
+        task = self.connect_tasks[device]
+        if task is None:
+            return
+        if device == "remote":
+            await self.disconnect_remote()
+        else:
+            self.connect_tasks["train"] = None
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            self.attempts["train"] = None
+            if self.train["status"] == "error":
+                self.train.update(status="disconnected", error=None)
+        self.log("app", "INFO", f"Stopped connecting {'the train' if device == 'train' else 'the DJI remote'}")
 
     def publish_remote_sample(self, controls, received_at, packet=None):
         """Overwrite the mailbox without waiting for Bluetooth output."""
@@ -798,15 +973,22 @@ class Controller:
             self.log("input", "INFO", "Centered controller axis")
         elif action == "remote_connect":
             await self.connect_remote(args.get("ip", ""))
+        elif action == "remote_search":
+            await self.search_remote()
         elif action == "remote_disconnect":
             await self.disconnect_remote()
+        elif action == "auto_connect":
+            await self.auto_connect(args.get("targets"), args.get("address"), args.get("ip"))
+        elif action == "stop_connecting":
+            for device in self.connect_targets(args.get("targets")):
+                await self.stop_connecting(device)
         else:
             raise ValueError("Unknown action.")
         self.dirty.set()
 
     async def close(self):
         self.closed = True
-        if self.remote_task:
+        if self.remote_task or self.remote_search_task or self.connect_tasks["remote"]:
             await self.disconnect_remote()
         await self.disconnect_train()
         for task in list(self.tasks):

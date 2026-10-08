@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import ipaddress
 import json
 from pathlib import Path
 import socket
@@ -10,8 +11,10 @@ import sys
 import threading
 import time
 import unittest
+from unittest.mock import Mock, patch
 
 import dji_wifi as dji_remote
+import dji_remote as protocol_helpers
 
 
 # Checksums independently computed with the protocol reference's CRC tables.
@@ -21,6 +24,50 @@ NEUTRAL = bytes.fromhex(
 PRESSED = bytes.fromhex(
     "55cc30751e000000551e048a06024d000006ae"
     "e0010e00004a05b60294066c0100046c01" "ba9f")
+
+
+class DiscoveryTests(unittest.TestCase):
+    def test_discovery_verifies_stick_input_and_never_writes(self):
+        connection = Mock()
+        connection.__enter__ = Mock(return_value=connection)
+        connection.__exit__ = Mock(return_value=False)
+        connection.recv.side_effect = [dji_remote.version_query(1), NEUTRAL[:9], NEUTRAL[9:]]
+        with patch.object(protocol_helpers.socket, 'create_connection', return_value=connection):
+            found = protocol_helpers.scan(ipaddress.ip_network('192.168.1.91/32'), 40007)
+        self.assertEqual(found, [{'ip': '192.168.1.91', 'duml_verified': True,
+                                 'controls_verified': True}])
+        connection.sendall.assert_not_called()
+        connection.send.assert_not_called()
+
+    def test_open_port_and_non_control_duml_are_not_stick_input(self):
+        corrupted = bytearray(NEUTRAL)
+        corrupted[-1] ^= 1
+        for payload, verified in ((b'not DJI', False), (bytes(corrupted), False),
+                                  (dji_remote.version_query(1), True)):
+            with self.subTest(payload=payload):
+                connection = Mock()
+                connection.__enter__ = Mock(return_value=connection)
+                connection.__exit__ = Mock(return_value=False)
+                connection.recv.side_effect = [payload, TimeoutError()]
+                with patch.object(protocol_helpers.socket, 'create_connection', return_value=connection):
+                    found = protocol_helpers.scan(ipaddress.ip_network('192.168.1.91/32'), 40007)
+                self.assertEqual(found[0]['duml_verified'], verified)
+                self.assertFalse(found[0]['controls_verified'])
+
+    def test_discovery_reports_permissions_and_bounds_the_network(self):
+        with patch.object(protocol_helpers.socket, 'create_connection', side_effect=PermissionError(1, 'Denied')):
+            with self.assertRaisesRegex(PermissionError, 'Network access denied'):
+                protocol_helpers.scan(ipaddress.ip_network('192.168.1.91/32'), 40007)
+        for subnet in ('192.168.0.0/16', '8.8.8.0/24'):
+            with self.assertRaises(ValueError):
+                protocol_helpers.scan(ipaddress.ip_network(subnet), 40007)
+
+    def test_network_detection_ignores_inactive_and_virtual_interfaces(self):
+        interfaces = ('en1: flags=8863<UP>\n inet 10.0.0.2 netmask 0xffffff00\n status: inactive\n'
+                      'utun0: flags=8863<UP>\n inet 10.1.0.2 netmask 0xffffff00\n status: active\n'
+                      'en0: flags=8863<UP>\n inet 192.168.1.54 netmask 0xffffff00\n status: active\n')
+        with patch.object(protocol_helpers.subprocess, 'check_output', return_value=interfaces):
+            self.assertEqual(protocol_helpers.local_network(), ipaddress.ip_network('192.168.1.0/24'))
 
 
 class ProtocolTests(unittest.TestCase):

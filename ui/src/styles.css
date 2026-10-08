@@ -371,6 +371,40 @@ kbd {
   align-items: center;
   gap: 10px 16px;
 }
+.devices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.device {
+  min-height: 40px;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.device:not(:has(.button)) {
+  padding-right: 12px;
+}
+.device strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.device .button.small {
+  min-height: 30px;
+  margin-left: 2px;
+  padding: 0 9px;
+  gap: 5px;
+  font-size: 13px;
+}
+.device-detail {
+  color: var(--muted);
+}
+.device-detail::before {
+  content: "·";
+  margin-right: 6px;
+}
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 760px);
@@ -903,9 +937,20 @@ details[open] > summary .caret {
   .topbar-actions {
     gap: 8px 10px;
   }
-  .topbar-actions .button {
+  .topbar-actions > .button {
     min-height: 36px;
     padding: 0 12px;
+  }
+  .topbar-actions,
+  .devices,
+  .device {
+    width: 100%;
+  }
+  .device {
+    white-space: normal;
+  }
+  .device .button.small {
+    margin-left: auto;
   }
   .layout {
     padding: 16px;

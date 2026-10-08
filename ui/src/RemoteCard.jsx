@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plug } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { MagnifyingGlass, Plug, SpinnerGap, X } from "@phosphor-icons/react";
 import { Panel, Switch, readStored, writeStored } from "./parts.jsx";
 
 const DEADZONES = [0.04, 0.08, 0.12, 0.2];
@@ -20,18 +20,24 @@ export default function RemoteCard({
   const stick = state?.left_stick || { available: false };
   const enabled = input.left_stick_enabled ?? true;
   const linked = ["connecting", "waiting", "connected"].includes(remote.status);
+  const searching = remote.status === "scanning";
+  // Automatic tries from the start card or the top bar.
+  const attempt = online ? state?.attempts?.remote : null;
   const position = stick.available ? stick.position : 0;
   const power = stick.available ? stick.power : 0;
   const powerDirection = power > 0 ? "forward" : power < 0 ? "backward" : "";
 
-  const [statusText, statusTone] =
-    remote.status === "connected"
-      ? ["Connected", "ok"]
-      : linked
-        ? ["Connecting…", "busy"]
-        : remote.status === "error"
-          ? ["Failed", "error"]
-          : ["Not connected", ""];
+  const [statusText, statusTone] = attempt
+    ? [`Try ${attempt.try} of ${attempt.of}`, "busy"]
+    : searching
+      ? ["Searching…", "busy"]
+      : remote.status === "connected"
+        ? ["Connected", "ok"]
+        : linked
+          ? ["Connecting…", "busy"]
+          : remote.status === "error"
+            ? ["Failed", "error"]
+            : ["Not connected", ""];
 
   const ready = connected && stick.available && enabled;
   const hint = !connected
@@ -53,36 +59,86 @@ export default function RemoteCard({
     if (await perform(action, { ip })) writeStored("duplo-remote-ip", ip);
   };
 
+  useEffect(() => {
+    if (linked && remote.ip) {
+      setIp(remote.ip);
+      writeStored("duplo-remote-ip", remote.ip);
+    }
+  }, [linked, remote.ip]);
+
   return (
     <Panel
       title="DJI remote"
       subtitle="Drive with the left stick of a DJI RC"
       status={<span className={`chip ${statusTone}`}>{statusText}</span>}
-      defaultOpen={Boolean(ip)}
+      defaultOpen
     >
       <p className="hint">
         Put a DJI RC (RM330) on the same Wi-Fi as this Mac. Left stick up is
         forward, down is backward. The other sticks and buttons do nothing.
       </p>
+      {remote.status === "error" && remote.error && !attempt && (
+        <p className="error-text" role="alert">
+          {remote.error}
+        </p>
+      )}
       <div className="row">
         <label className="field grow">
-          Remote’s IP address (see its Wi-Fi settings)
+          Remote’s IP address
           <input
             value={ip}
             onChange={(event) => setIp(event.target.value)}
             placeholder="192.168.1.123"
             inputMode="decimal"
-            disabled={linked}
+            disabled={linked || searching || Boolean(attempt)}
           />
         </label>
-        <button
-          className="button"
-          disabled={!online || (!linked && !ip)}
-          onClick={toggleLink}
-        >
-          <Plug size={17} />
-          {linked ? "Disconnect" : "Connect"}
-        </button>
+        {attempt ? (
+          <div className="row" aria-busy="true">
+            <button
+              className="button"
+              onClick={() =>
+                perform("stop_connecting", { targets: ["remote"] })
+              }
+            >
+              <X size={17} /> Stop connecting
+            </button>
+          </div>
+        ) : (
+          <div className="row" aria-busy={searching}>
+            <button
+              className="button"
+              disabled={!online || searching || (!linked && !ip.trim())}
+              onClick={toggleLink}
+            >
+              <Plug size={17} />
+              {linked ? "Disconnect" : "Connect"}
+            </button>
+            {!linked && (
+              <button
+                className="button"
+                disabled={!online || searching}
+                onClick={() => perform("remote_search")}
+              >
+                {searching ? (
+                  <SpinnerGap size={17} className="spin" />
+                ) : (
+                  <MagnifyingGlass size={17} />
+                )}
+                {searching ? "Searching Wi-Fi…" : "Search and connect"}
+              </button>
+            )}
+            {searching && (
+              <button
+                className="button"
+                disabled={!online}
+                onClick={() => perform("remote_disconnect")}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {linked && (
         <>

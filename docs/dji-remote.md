@@ -71,6 +71,9 @@ Discovery checks only TCP port 40007 on one private IPv4 subnet of /24 or
 smaller. An open port is listed as a candidate; `duml_verified: true` means a
 checksum-valid DJI packet was received. This does not identify the controller's
 exact model or guarantee that its control stream is available.
+`controls_verified: true` additionally means a valid stick-input packet was
+decoded. The web app's **Search and connect** button requires exactly one such
+candidate before filling its IP address and starting the existing Wi-Fi reader.
 
 If no service is found, check the controller's model, IP, power and Wi-Fi.
 Some firmware reportedly disables network port 40007, according to

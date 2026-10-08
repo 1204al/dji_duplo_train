@@ -132,26 +132,31 @@ def scan(network, port):
         raise ValueError("Discovery requires a private IPv4 network of /24 or smaller.")
 
     def probe(address):
+        candidate = None
         try:
             with socket.create_connection((str(address), port), timeout=0.4) as connection:
-                connection.settimeout(0.6)
+                candidate = {"ip": str(address), "duml_verified": False,
+                             "controls_verified": False}
                 parser = PacketParser()
                 until = time.monotonic() + 0.6
                 while time.monotonic() < until:
+                    connection.settimeout(max(0.001, until - time.monotonic()))
                     data = connection.recv(4096)
                     if not data:
                         break
-                    if parser.feed(data):
-                        return {"ip": str(address), "duml_verified": True}
-                return {"ip": str(address), "duml_verified": False}
+                    for packet in parser.feed(data):
+                        candidate["duml_verified"] = True
+                        if decode_controls(packet) is not None:
+                            candidate["controls_verified"] = True
+                            return candidate
+                return candidate
         except TimeoutError:
-            # The port accepted TCP but did not send a complete DUML packet.
-            if "connection" in locals():
-                return {"ip": str(address), "duml_verified": False}
+            # Keep the distinction between an open port, DUML and stick input.
+            return candidate
         except OSError as exc:
             if exc.errno in (errno.EPERM, errno.EACCES):
                 raise PermissionError("Network access denied; run from an allowed terminal and allow Local Network access.") from exc
-        return None
+        return candidate
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
         return [result for result in pool.map(probe, network.hosts()) if result]

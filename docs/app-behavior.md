@@ -8,6 +8,12 @@ Reference notes for the web app. For a quick start, see the [README](../README.m
 - `ui/` — React page. It sends commands and a heartbeat over one WebSocket (`/api/ws`) and shows the state the server reports. No Bluetooth or DJI data is handled in the browser.
 - `lego_protocol.py` — LEGO Wireless Protocol packets for the train. `dji_remote.py` / `dji_wifi.py` — DJI DUML decoding and the Wi-Fi reader.
 
+## Connecting
+
+The start card offers **Connect both**, **Train only** and **Remote only**. Each device is tried in the background up to 5 times, with a 2-second pause between tries; the train and the remote are tried at the same time. A train try is one 7-second Bluetooth scan and connection. A remote try first uses the remote's remembered IP (from this browser or the last connection) and waits up to 5 seconds for stick input, then falls back to **Search and connect**. Errors between tries go only to the debug log. The banner shows the reason after the last try fails.
+
+The top bar shows each device's state (for example `Connecting · try 2 of 5`, the train battery, or the remote's IP). While a device is being tried, **Stop** cancels only that device, and **Stop both** appears when both are being tried. A device that has failed, dropped or been stopped shows **Reconnect** (or **Connect** if it never connected). A connected device is not disconnected by **Stop**. The DJI panel's own **Connect**, **Search and connect** and **Disconnect** cancel any automatic remote tries. The app does not reconnect by itself after a device drops.
+
 The speed slider sets motor power, not a calibrated physical speed. Bluetooth writes and command feedback appear in the debug log; physical motion is not inferred from a successful write. "Last action brick" is the last tag the train reported.
 
 ## Stopping and safety rules
@@ -31,6 +37,8 @@ The stick preference is on by default and turns itself on when the train, fresh 
 
 The server receives DJI RC (RM330) Wi-Fi/DUML input on TCP port 40007 through five staggered, receive-only readers that reconnect independently. Pending input is replaced by the latest sample instead of building a backlog. Other DJI models may need another adapter; see [DJI remote listeners](dji-remote.md).
 
+The **DJI remote** panel starts open on every page load. **Search and connect** finds the Mac's active private IPv4 subnet and checks TCP port 40007 on up to 254 addresses. It connects only when exactly one address sends checksum-valid DJI stick packets, fills in the IP address, and remembers it in this browser. Search runs in the background and can be cancelled. If no remote or several remotes are found, or the network cannot be selected automatically (including subnets larger than /24), the panel explains what to do and keeps manual IP entry available. Both devices must already be on the same Wi-Fi; the button does not change their Wi-Fi settings.
+
 ## Purple brick sound
 
 LEGO's official app can transfer a clip of up to five seconds to the train for the purple brick. This app plays your clip **on the Mac** instead: sending audio to the train speaker is not implemented, because the public protocol and inspected implementations do not establish the encoding and transfer sequence. See [the research record](train-features-research.md).
@@ -45,7 +53,7 @@ Power off sends Stop, cancels queued drive commands, then sends the documented H
 
 ## Debug log
 
-**Debug** in the top bar opens the event log (filter, pause, clear, NDJSON export, event inspector) and **Connection details**: train name, Bluetooth ID, model, firmware, signal, raw speed sensor, last brick, ports, raw DJI readings, and an optional train identifier for when several trains are nearby. **Inspect train capabilities** requests advertised port modes, names and value formats and lists Bluetooth services; it does not send audio or probe unknown commands.
+**Debug** starts open on every page load and can be toggled with the top-bar button. It contains the event log (filter, pause, clear, NDJSON export, event inspector) and **Connection details**: train name, Bluetooth ID, model, firmware, signal, raw speed sensor, last brick, ports, raw DJI readings, and an optional train identifier for when several trains are nearby. **Inspect train capabilities** requests advertised port modes, names and value formats and lists Bluetooth services; it does not send audio or probe unknown commands.
 
 ## Tests
 

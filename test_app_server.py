@@ -1,5 +1,6 @@
 """Exercise the real web bridge with simulated hardware and failure injection."""
 import asyncio
+import ipaddress
 from contextlib import suppress
 import time
 import struct
@@ -775,6 +776,239 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         finally:
             c.demo = True
 
+    async def test_search_connects_only_a_unique_verified_stick_stream(self):
+        c = self.controller
+        c.demo = False
+        candidates = [{'ip': '192.168.1.12', 'duml_verified': True, 'controls_verified': False},
+                      {'ip': '192.168.1.91', 'duml_verified': True, 'controls_verified': True}]
+        with patch.object(dji_remote, 'local_network', return_value=ipaddress.ip_network('192.168.1.0/24')), \
+                patch.object(dji_remote, 'scan', return_value=candidates) as scan, \
+                patch.object(c, 'remote_stream', new_callable=AsyncMock) as stream:
+            await c.action('remote_search', {}, self.owner)
+            self.assertEqual(c.remote['status'], 'scanning')
+            await c.remote_search_task
+            await asyncio.sleep(0)
+            scan.assert_called_once_with(ipaddress.ip_network('192.168.1.0/24'), 40007)
+            stream.assert_awaited_once_with('192.168.1.91')
+            self.assertEqual(c.snapshot()['controller']['ip'], '192.168.1.91')
+            self.assertEqual(c.remote['status'], 'connecting')
+            self.assertTrue(c.input['neutral_required'])
+            self.assertIsNone(c.remote_search_task)
+            await c.disconnect_remote()
+
+    async def test_search_failure_explains_no_remote_and_multiple_remotes(self):
+        c = self.controller
+        c.demo = False
+        for candidates, expected in (([], 'No DJI remote found'),
+                                     ([{'ip': '192.168.1.12', 'duml_verified': True}], 'No DJI remote found'),
+                                     ([{'ip': '192.168.1.91', 'controls_verified': True},
+                                       {'ip': '192.168.1.92', 'controls_verified': True}], 'Several DJI remotes found')):
+            with self.subTest(candidates=candidates):
+                with patch.object(dji_remote, 'local_network', return_value=ipaddress.ip_network('192.168.1.0/24')), \
+                        patch.object(dji_remote, 'scan', return_value=candidates), \
+                        patch.object(c, 'remote_stream', new_callable=AsyncMock) as stream:
+                    await c.search_remote()
+                    await c.remote_search_task
+                    self.assertEqual(c.remote['status'], 'error')
+                    self.assertIn(expected, c.remote['error'])
+                    stream.assert_not_called()
+                    self.assertIsNone(c.remote_task)
+
+    async def test_search_network_errors_are_visible_and_demo_never_scans(self):
+        c = self.controller
+        with patch.object(dji_remote, 'scan') as scan:
+            with self.assertRaisesRegex(ValueError, 'disabled in Demo'):
+                await c.search_remote()
+            scan.assert_not_called()
+        c.demo = False
+        with patch.object(dji_remote, 'local_network', side_effect=ValueError('No subnet')):
+            await c.search_remote()
+            await c.remote_search_task
+            self.assertIn("Couldn't choose the Wi-Fi network", c.remote['error'])
+        with patch.object(dji_remote, 'local_network', return_value=ipaddress.ip_network('192.168.1.0/24')), \
+                patch.object(dji_remote, 'scan', side_effect=PermissionError('Network access denied')):
+            await c.search_remote()
+            await c.remote_search_task
+            self.assertEqual(c.remote['status'], 'error')
+            self.assertIn('Network access denied', c.remote['error'])
+
+    async def test_cancelled_search_cannot_connect_later_or_duplicate(self):
+        c = self.controller
+        c.demo = False
+        started = asyncio.Event()
+        gate = asyncio.Event()
+
+        async def background_call(function, *args):
+            if function is dji_remote.local_network:
+                return ipaddress.ip_network('192.168.1.0/24')
+            started.set()
+            await gate.wait()
+            return [{'ip': '192.168.1.91', 'controls_verified': True}]
+
+        with patch('app_server.asyncio.to_thread', new=background_call), \
+                patch.object(c, 'remote_stream', new_callable=AsyncMock) as stream:
+            await c.search_remote()
+            search = c.remote_search_task
+            await started.wait()
+            await c.search_remote()
+            self.assertIs(c.remote_search_task, search)
+            await c.disconnect_remote()
+            gate.set()
+            await asyncio.sleep(0)
+            self.assertTrue(search.cancelled())
+            self.assertIsNone(c.remote_search_task)
+            self.assertEqual(c.remote['status'], 'disconnected')
+            stream.assert_not_called()
+
+    async def test_manual_connection_cancels_search_and_close_cleans_it_up(self):
+        c = self.controller
+        c.demo = False
+
+        async def background_call(function, *args):
+            await asyncio.Event().wait()
+
+        with patch('app_server.asyncio.to_thread', new=background_call), \
+                patch.object(c, 'remote_stream', new_callable=AsyncMock):
+            await c.search_remote()
+            search = c.remote_search_task
+            await asyncio.sleep(0)
+            await c.connect_remote('192.168.1.88')
+            self.assertTrue(search.cancelled())
+            self.assertEqual(c.remote['ip'], '192.168.1.88')
+            await c.disconnect_remote()
+            await c.search_remote()
+            search = c.remote_search_task
+            await asyncio.sleep(0)
+            await c.close()
+            self.assertTrue(search.cancelled())
+            self.assertIsNone(c.remote_search_task)
+
+    async def test_auto_connect_retries_the_train_and_reports_each_try(self):
+        c = self.controller
+        c.demo, c.retry_delay = False, 0
+        c.train['status'] = 'disconnected'
+        seen = []
+
+        async def connect(address):
+            seen.append((address, dict(c.attempts['train'])))
+            if len(seen) < 3:
+                raise ValueError('No train found.')
+            c.train['status'] = 'connected'
+
+        with patch.object(c, 'connect_train', side_effect=connect):
+            await c.action('auto_connect', {'targets': ['train'], 'address': 'AA:BB'}, self.owner)
+            self.assertEqual(c.snapshot()['attempts']['train'], {'try': 1, 'of': 5})
+            await c.connect_tasks['train']
+        self.assertEqual(seen, [('AA:BB', {'try': n, 'of': 5}) for n in (1, 2, 3)])
+        self.assertEqual(c.train['status'], 'connected')
+        self.assertEqual(c.snapshot()['attempts'], {'train': None, 'remote': None})
+        self.assertIsNone(c.connect_tasks['train'])
+        self.assertTrue(any('Try 2 of 5 for the train failed' in event['message'] for event in c.logs))
+        c.train['status'] = 'disconnected'
+
+    async def test_auto_connect_gives_up_after_the_last_try(self):
+        c = self.controller
+        c.demo, c.retry_delay = False, 0
+        c.train['status'] = 'disconnected'
+        with patch.object(c, 'connect_train', new=AsyncMock(side_effect=ValueError('No train found.'))) as connect:
+            await c.auto_connect(['train'])
+            await c.connect_tasks['train']
+        self.assertEqual(connect.await_count, 5)
+        self.assertIsNone(c.attempts['train'])
+        self.assertEqual(c.logs[-1]['message'], "Couldn't connect the train after 5 tries.")
+
+    async def test_auto_connect_skips_connected_devices_and_validates_targets(self):
+        c = self.controller
+        await c.auto_connect(['train'])
+        self.assertIsNone(c.connect_tasks['train'])
+        for targets in (None, [], ['train', 'lamp'], 'train'):
+            with self.subTest(targets=targets), self.assertRaisesRegex(ValueError, 'Choose the train'):
+                await c.action('auto_connect', {'targets': targets}, self.owner)
+        with self.assertRaisesRegex(ValueError, 'disabled in Demo'):
+            await c.auto_connect(['train', 'remote'])
+        self.assertIsNone(c.connect_tasks['remote'])
+
+    async def test_one_device_can_stop_trying_while_the_other_continues(self):
+        c = self.controller
+        c.demo = False
+        c.train['status'] = 'disconnected'
+        hold = asyncio.Event()
+
+        async def connect(address):
+            c.train['status'] = 'scanning'
+            await hold.wait()
+
+        async def background_call(function, *args):
+            await hold.wait()
+
+        with patch.object(c, 'connect_train', side_effect=connect), \
+                patch('app_server.asyncio.to_thread', new=background_call):
+            await c.action('auto_connect', {'targets': ['train', 'remote']}, self.owner)
+            train, remote = c.connect_tasks['train'], c.connect_tasks['remote']
+            await asyncio.sleep(0)
+            self.assertEqual(c.remote['status'], 'scanning')
+            await c.action('stop_connecting', {'targets': ['train']}, self.owner)
+            self.assertTrue(train.cancelled())
+            self.assertIsNone(c.attempts['train'])
+            self.assertFalse(remote.done())
+            self.assertEqual(c.attempts['remote'], {'try': 1, 'of': 5})
+            await c.action('stop_connecting', {'targets': ['train', 'remote']}, self.owner)
+            self.assertTrue(remote.cancelled())
+            self.assertEqual(c.remote['status'], 'disconnected')
+            self.assertEqual(c.snapshot()['attempts'], {'train': None, 'remote': None})
+
+    async def test_remote_tries_remembered_ip_then_searches_wifi(self):
+        c = self.controller
+        c.demo, c.remote_input_timeout = False, 0.2
+        streams = []
+
+        async def stream(ip):
+            streams.append(ip)
+            if ip == '192.168.1.91':
+                c.publish_remote_sample(self.controls(), time.monotonic())
+            await asyncio.Event().wait()
+
+        with patch.object(dji_remote, 'local_network', return_value=ipaddress.ip_network('192.168.1.0/24')), \
+                patch.object(dji_remote, 'scan', return_value=[{'ip': '192.168.1.91', 'controls_verified': True}]), \
+                patch.object(c, 'remote_stream', side_effect=stream):
+            await c.auto_connect(['remote'], ip='192.168.1.50')
+            await c.connect_tasks['remote']
+            self.assertEqual(streams, ['192.168.1.50', '192.168.1.91'])
+            self.assertEqual(c.remote['status'], 'connected')
+            self.assertEqual(c.remote['ip'], '192.168.1.91')
+            self.assertTrue(any('No stick input from 192.168.1.50' in event['message'] for event in c.logs))
+            await c.disconnect_remote()
+
+    async def test_failed_remote_try_stops_readers_and_manual_disconnect_cancels_tries(self):
+        c = self.controller
+        c.demo, c.retry_delay, c.remote_input_timeout = False, 0, 0.05
+
+        with patch.object(dji_remote, 'local_network', return_value=ipaddress.ip_network('192.168.1.0/24')), \
+                patch.object(dji_remote, 'scan', return_value=[]), \
+                patch.object(c, 'remote_stream', new=AsyncMock()):
+            await c.auto_connect(['remote'], ip='192.168.1.50')
+            await c.connect_tasks['remote']
+        self.assertEqual(c.remote['status'], 'error')
+        self.assertIn('No DJI remote found', c.remote['error'])
+        self.assertIsNone(c.remote_task)
+        c.retry_delay = 60
+        with patch.object(dji_remote, 'local_network', side_effect=ValueError('No subnet')), \
+                patch.object(c, 'remote_stream', new=AsyncMock()):
+            # Stopping before the first try starts, then while waiting to retry.
+            for wait_for_retry in (False, True):
+                first_log = c.next_id
+                await c.auto_connect(['remote'])
+                retry = c.connect_tasks['remote']
+                while wait_for_retry and not any('Try 1 of 5 for the DJI remote' in event['message']
+                                                 for event in c.logs if event['id'] >= first_log):
+                    await asyncio.sleep(0.01)
+                self.assertFalse(retry.done())
+                await c.action('remote_disconnect', {}, self.owner)
+                self.assertTrue(retry.cancelled())
+                self.assertIsNone(c.attempts['remote'])
+                self.assertIsNone(c.connect_tasks['remote'])
+                self.assertEqual(c.remote['status'], 'disconnected')
+
 
 class WebBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -792,6 +1026,37 @@ class WebBridgeTests(unittest.IsolatedAsyncioTestCase):
             message = await ws.receive_json(timeout=2)
             if message['type'] == 'result' and message.get('id') == request_id:
                 return message
+
+    async def test_search_keeps_websocket_and_computer_controls_responsive(self):
+        c = self.controller
+        c.demo = False
+        c.client = Mock(is_connected=True, write_gatt_char=AsyncMock(), disconnect=AsyncMock())
+        c.characteristic = Mock(properties=['write'])
+        started = asyncio.Event()
+
+        async def background_call(function, *args):
+            started.set()
+            await asyncio.Event().wait()
+
+        ws = await self.client.ws_connect('/api/ws')
+        await ws.receive_json()
+        with patch('app_server.asyncio.to_thread', new=background_call), \
+                patch.object(c, 'write', new_callable=AsyncMock):
+            self.assertTrue((await self.command(ws, 'remote_search'))['ok'])
+            await started.wait()
+            search = c.remote_search_task
+            self.assertEqual(c.remote['status'], 'scanning')
+            self.assertTrue((await self.command(ws, 'drive', {'power': 35}, request_id=2))['ok'])
+            previous_heartbeat = c.last_heartbeat
+            await ws.send_json({'type': 'heartbeat', 'active': True})
+            self.assertTrue((await self.command(ws, 'audio_event', {'event': 'loaded'}, request_id=3))['ok'])
+            self.assertGreater(c.last_heartbeat, previous_heartbeat)
+            self.assertTrue((await self.command(ws, 'stop', request_id=4))['ok'])
+            self.assertEqual(c.train['power'], 0)
+            self.assertTrue((await self.command(ws, 'remote_disconnect', request_id=5))['ok'])
+            self.assertTrue(search.cancelled())
+        await ws.close()
+        c.demo = True
 
     async def test_only_an_active_browser_automatically_enables_the_default_stick(self):
         ws = await self.client.ws_connect('/api/ws')
