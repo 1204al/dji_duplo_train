@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from aiohttp import web, WSMsgType
 from bleak import BleakClient, BleakScanner
 
+from connection_voice import ConnectionVoice
 import dji_remote
 from lego_protocol import (PORTS, SOUNDS, INTERACTIVE_SOUNDS, decode_packet, light_packet, motor_packet,
                            request_property, sound_packet, subscribe, power_off_packet,
@@ -74,6 +75,8 @@ class Controller:
                       "driver": None}
         self.logs = deque(maxlen=1000)
         self.next_id = 1
+        self.voice = ConnectionVoice(enabled=not demo, warn=lambda message:
+                                     self.log("audio", "INFO", message, level="warning"))
         self.client = None
         self.characteristic = None
         self.clients = set()
@@ -194,6 +197,7 @@ class Controller:
         self.log("train", "RX", message, data, "error" if protocol_error else "info")
 
     def lost_train(self, _client):
+        self.voice.disconnected("train")
         expected = self.train["status"] == "powering_off"
         self.train.update(status="disconnected", power=0, battery=None, rssi=None,
                           measured_speed=None, tag=None, tag_name=None)
@@ -271,6 +275,7 @@ class Controller:
                 await self.write(subscribe(ports["color"], 0 if kind == 0x21 else 3), "Subscribe to action brick sensor")
                 await self.write(subscribe(ports["speed"], 2 if kind == 0x21 else 0), "Subscribe to speed sensor")
                 await self.write(motor_packet(kind, 0), "Stop motor on connection")
+                self.voice.ready("train")
             except asyncio.CancelledError:
                 if client is not None:
                     with suppress(Exception):
@@ -291,6 +296,7 @@ class Controller:
 
     async def disconnect_train(self):
         await self.stop_connecting("train")
+        self.voice.disconnected("train")
         async with self.lifecycle_lock:
             await self.stop("Stopped before disconnecting")
             if self.client is not None:
@@ -311,6 +317,7 @@ class Controller:
             self.owner = None
             self.input.update(source="manual", neutral_required=True, manual_override=False, driver=None)
             self.train.update(status="powering_off", power=0)
+            self.voice.disconnected("train")
             self.dirty.set()
             try:
                 async with self.write_lock:
@@ -534,6 +541,7 @@ class Controller:
                 await self.pause_remote_input()
             if self.remote["status"] == "connected" and now - self.last_remote_sample >= 0.6:
                 self.remote.update(status="waiting", error="Controller input is stale; Wi-Fi readers are reconnecting.")
+                self.voice.waiting("remote")
                 self.dirty.set()
             if reason:
                 await self.stop(reason)
@@ -554,6 +562,7 @@ class Controller:
             await self._disconnect_remote()
 
     async def _disconnect_remote(self):
+        self.voice.disconnected("remote")
         self.remote_session += 1
         was_linked = self.remote["status"] not in ("disconnected", "error")
         # Automatic tries call this between attempts; only outside callers cancel them.
@@ -764,6 +773,7 @@ class Controller:
         self.remote.update(status="connected", axes=controls["axes"],
                            buttons=controls.get("buttons", {}), axis_raw=controls.get("axis_raw", {}),
                            mode=controls.get("mode"), error=None)
+        self.voice.ready("remote")
         if first:
             self.log("controller", "INFO", "DJI Wi-Fi controls received. Left stick controls forward and reverse; other actions stay on the computer.")
         elif controls != self.previous_remote_controls and now - self.last_remote_log >= 0.1:
@@ -872,6 +882,7 @@ class Controller:
             await asyncio.gather(*workers, return_exceptions=True)
             self.dirty.set()
         if error is not None:
+            self.voice.disconnected("remote")
             self.remote.update(status="error", error=str(error), axes={}, buttons={}, axis_raw={})
             await self.disable_remote_input("DJI input disabled: controller connection lost")
             self.log("controller", "ERROR", str(error), level="error")
@@ -988,6 +999,7 @@ class Controller:
 
     async def close(self):
         self.closed = True
+        await self.voice.close()
         if self.remote_task or self.remote_search_task or self.connect_tasks["remote"]:
             await self.disconnect_remote()
         await self.disconnect_train()

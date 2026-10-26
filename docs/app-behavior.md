@@ -16,6 +16,12 @@ The top bar shows each device's state (for example `Connecting · try 2 of 5`, t
 
 The speed slider sets motor power, not a calibrated physical speed. Bluetooth writes and command feedback appear in the debug log; physical motion is not inferred from a successful write. "Last action brick" is the last tag the train reported.
 
+## Connection voice
+
+The user-selected spoken confirmations play on the Mac: **“Train connected”**, **“DJI remote connected”**, then an additional **“Train and remote connected”** when the second device connects. The train message waits until Bluetooth setup, sensor subscriptions and the initial motor Stop finish. The remote message waits for valid, fresh left-stick input.
+
+The local server speaks through macOS's installed Samantha voice at 190 words per minute, matching the chosen preview. Messages play one at a time in the background, so they do not delay control commands, require browser autoplay permission, or repeat in multiple tabs. Queued messages for a disconnected device are dropped. A full reconnection announces again; temporary Wi-Fi input gaps do not repeat messages that already played, and the combined message waits until both devices are available. Demo is silent. Speech failures appear in the debug log without failing device connections or controls. Server shutdown cancels pending speech and stops its speech process. No system-voice recordings are included in the repository.
+
 ## Stopping and safety rules
 
 - The train stops when the browser disconnects or its heartbeat is missing for about 1.5 seconds. The watchdog checks every 0.15 seconds; Bluetooth adds its own delay.

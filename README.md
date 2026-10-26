@@ -24,6 +24,8 @@ flowchart LR
 
 Everything runs locally on the Mac. Keep the app window open and in focus while driving.
 
+The Mac says **“Train connected”** or **“DJI remote connected”** after each connection, then **“Train and remote connected”** when both are connected.
+
 ## Drive
 
 - Push the left stick up to go forward.
