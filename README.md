@@ -2,6 +2,10 @@
 
 Drive a LEGO DUPLO smart train with a DJI RC (RM330) remote.
 
+![DJI remote controlling a LEGO DUPLO train on its track](docs/media/duplo-control.jpg)
+
+[Watch the train in action (MP4, 11 seconds)](docs/media/duplo-control.mp4?raw=true)
+
 ## The idea
 
 I don't want to give my child a screen. I wanted a cool remote for the train.
